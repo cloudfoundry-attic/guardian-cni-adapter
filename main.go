@@ -88,7 +88,7 @@ func main() {
 
 	switch action {
 	case "up":
-		err = myController.Up(namespacePath, handle, "XXXXXXXXXXXXXXXSOMESPEC")
+		err = myController.Up(namespacePath, handle, "some-spec-not-set")
 		if err != nil {
 			log.Fatalf("up failed: %s", err)
 		}
