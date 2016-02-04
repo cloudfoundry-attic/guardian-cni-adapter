@@ -71,13 +71,13 @@ var _ = Describe("Guardian CNI adapter", func() {
 	Describe("up", func() {
 		BeforeEach(func() {
 			command.Args = []string{pathToAdapter,
-				"up",
-				"--handle", "some-container-handle",
-				"--network", "some-network-spec",
 				"--cniPluginDir", cniPluginDir,
 				"--cniConfigDir", cniConfigDir,
 				"--ducatiSandboxDir", "some-sandbox",
 				"--daemonBaseURL", "http://example.com",
+				"up",
+				"--handle", "some-container-handle",
+				"--network", "some-network-spec",
 			}
 		})
 

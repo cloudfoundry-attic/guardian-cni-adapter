@@ -22,8 +22,6 @@ var (
 )
 
 func parseArgs(allArgs []string) error {
-	action = allArgs[1]
-
 	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
 
 	flagSet.StringVar(&handle, "handle", "", "")
@@ -33,11 +31,24 @@ func parseArgs(allArgs []string) error {
 	flagSet.StringVar(&ducatiSandboxDir, "ducatiSandboxDir", "", "")
 	flagSet.StringVar(&daemonBaseURL, "daemonBaseURL", "", "")
 
-	err := flagSet.Parse(allArgs[2:])
+	allArgs = allArgs[1:]
+	err := flagSet.Parse(allArgs)
 	if err != nil {
 		os.Exit(1) // exit, error was already printed to stderr by flagSet.Parse
 	}
-	if len(flagSet.Args()) > 0 {
+	extraArgs := flagSet.Args()
+
+	if len(extraArgs) > 0 {
+		action = extraArgs[0]
+		extraArgs = extraArgs[1:]
+		err = flagSet.Parse(extraArgs)
+		if err != nil {
+			os.Exit(1) // exit, error already printed
+		}
+		extraArgs = flagSet.Args()
+	}
+
+	if len(extraArgs) > 0 {
 		log.Fatalf("unexpected extra args: %+v", flagSet.Args())
 	}
 
