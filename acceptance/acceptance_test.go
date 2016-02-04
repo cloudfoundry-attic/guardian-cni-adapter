@@ -76,8 +76,11 @@ var _ = Describe("Guardian CNI adapter", func() {
 				"--network", "some-network-spec",
 				"--cniPluginDir", cniPluginDir,
 				"--cniConfigDir", cniConfigDir,
+				"--ducatiSandboxDir", "some-sandbox",
+				"--daemonBaseURL", "http://example.com",
 			}
 		})
+
 		It("should call every CNI plugin in the plugin directory with ADD", func() {
 			session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
@@ -94,9 +97,12 @@ var _ = Describe("Guardian CNI adapter", func() {
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_CONTAINERID", "some-container-handle"))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_PATH", cniPluginDir))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DUCATI_OS_SANDBOX_REPO", "some-sandbox"))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DAEMON_BASE_URL", "http://example.com"))
 			}
 		})
 	})
+
 	Describe("down", func() {
 		BeforeEach(func() {
 			command.Args = []string{pathToAdapter,
@@ -104,8 +110,11 @@ var _ = Describe("Guardian CNI adapter", func() {
 				"--handle", "some-container-handle",
 				"--cniPluginDir", cniPluginDir,
 				"--cniConfigDir", cniConfigDir,
+				"--ducatiSandboxDir", "some-sandbox",
+				"--daemonBaseURL", "http://example.com",
 			}
 		})
+
 		It("should call every CNI plugin in the plugin directory with DEL", func() {
 			session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
@@ -122,6 +131,8 @@ var _ = Describe("Guardian CNI adapter", func() {
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_CONTAINERID", "some-container-handle"))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_PATH", cniPluginDir))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DUCATI_OS_SANDBOX_REPO", "some-sandbox"))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DAEMON_BASE_URL", "http://example.com"))
 			}
 		})
 	})

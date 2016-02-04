@@ -12,11 +12,13 @@ import (
 )
 
 var (
-	action       string
-	handle       string
-	networkSpec  string
-	cniPluginDir string
-	cniConfigDir string
+	action           string
+	handle           string
+	networkSpec      string
+	cniPluginDir     string
+	cniConfigDir     string
+	ducatiSandboxDir string
+	daemonBaseURL    string
 )
 
 func parseArgs(allArgs []string) error {
@@ -28,6 +30,8 @@ func parseArgs(allArgs []string) error {
 	flagSet.StringVar(&networkSpec, "network", "", "")
 	flagSet.StringVar(&cniPluginDir, "cniPluginDir", "", "")
 	flagSet.StringVar(&cniConfigDir, "cniConfigDir", "", "")
+	flagSet.StringVar(&ducatiSandboxDir, "ducatiSandboxDir", "", "")
+	flagSet.StringVar(&daemonBaseURL, "daemonBaseURL", "", "")
 
 	err := flagSet.Parse(allArgs[2:])
 	if err != nil {
@@ -45,6 +49,12 @@ func parseArgs(allArgs []string) error {
 	}
 	if cniConfigDir == "" {
 		log.Fatalf("missing required flag 'cniConfigDir'")
+	}
+	if ducatiSandboxDir == "" {
+		log.Fatalf("missing required flag 'ducatiSandboxDir'")
+	}
+	if daemonBaseURL == "" {
+		log.Fatalf("missing required flag 'daemonBaseURL'")
 	}
 	if action == "up" && networkSpec == "" {
 		log.Fatalf("missing required flag 'network'")
@@ -80,8 +90,10 @@ func main() {
 	}
 
 	myController := controller.Controller{
-		PluginDir: cniPluginDir,
-		ConfigDir: cniConfigDir,
+		PluginDir:      cniPluginDir,
+		ConfigDir:      cniConfigDir,
+		SandboxDirPath: ducatiSandboxDir,
+		DaemonBaseURL:  daemonBaseURL,
 	}
 
 	namespacePath := fmt.Sprintf("/proc/%d/ns/net", containerState.Pid)

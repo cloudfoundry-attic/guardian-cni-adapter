@@ -37,6 +37,8 @@ var _ = Describe("Guardian CNI adapter", func() {
 			"--network", "some-network-spec",
 			"--cniPluginDir", cniPluginDir,
 			"--cniConfigDir", cniConfigDir,
+			"--ducatiSandboxDir", "some-sandbox-dir",
+			"--daemonBaseURL", "http://example.com",
 		}
 		command.Env = []string{"FAKE_LOG_DIR=" + fakeLogDir}
 
@@ -117,6 +119,8 @@ var _ = Describe("Guardian CNI adapter", func() {
 					"--network", "some-network-spec",
 					"--cniPluginDir", cniPluginDir,
 					"--cniConfigDir", cniConfigDir,
+					"--ducatiSandboxDir", "some-sandbox-dir",
+					"--daemonBaseURL", "http://example.com",
 				}
 
 				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
@@ -135,6 +139,8 @@ var _ = Describe("Guardian CNI adapter", func() {
 					"--handle", "some-container-handle",
 					"--cniPluginDir", cniPluginDir,
 					"--cniConfigDir", cniConfigDir,
+					"--ducatiSandboxDir", "some-sandbox-dir",
+					"--daemonBaseURL", "http://example.com",
 				}
 
 				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
@@ -153,6 +159,8 @@ var _ = Describe("Guardian CNI adapter", func() {
 					"--handle", "some-container-handle",
 					"--network", "some-network-spec",
 					"--cniConfigDir", cniConfigDir,
+					"--ducatiSandboxDir", "some-sandbox-dir",
+					"--daemonBaseURL", "http://example.com",
 				}
 
 				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
@@ -171,6 +179,8 @@ var _ = Describe("Guardian CNI adapter", func() {
 					"--handle", "some-container-handle",
 					"--network", "some-network-spec",
 					"--cniPluginDir", cniPluginDir,
+					"--ducatiSandboxDir", "some-sandbox-dir",
+					"--daemonBaseURL", "http://example.com",
 				}
 
 				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
@@ -179,6 +189,46 @@ var _ = Describe("Guardian CNI adapter", func() {
 				Eventually(session).Should(gexec.Exit(1))
 				Expect(session.Out.Contents()).To(BeEmpty())
 				Expect(session.Err.Contents()).To(ContainSubstring(`missing required flag 'cniConfigDir'`))
+			})
+		})
+
+		Context("when the ducatiSandboxDir arg is missing", func() {
+			It("should return an error", func() {
+				command.Args = []string{pathToAdapter,
+					"up",
+					"--handle", "some-container-handle",
+					"--network", "some-network-spec",
+					"--cniConfigDir", cniConfigDir,
+					"--cniPluginDir", cniPluginDir,
+					"--daemonBaseURL", "http://example.com",
+				}
+
+				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(session).Should(gexec.Exit(1))
+				Expect(session.Out.Contents()).To(BeEmpty())
+				Expect(session.Err.Contents()).To(ContainSubstring(`missing required flag 'ducatiSandboxDir'`))
+			})
+		})
+
+		Context("when the daemonBaseURL arg is missing", func() {
+			It("should return an error", func() {
+				command.Args = []string{pathToAdapter,
+					"up",
+					"--handle", "some-container-handle",
+					"--network", "some-network-spec",
+					"--cniConfigDir", cniConfigDir,
+					"--cniPluginDir", cniPluginDir,
+					"--ducatiSandboxDir", "some-sandbox-dir",
+				}
+
+				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(session).Should(gexec.Exit(1))
+				Expect(session.Out.Contents()).To(BeEmpty())
+				Expect(session.Err.Contents()).To(ContainSubstring(`missing required flag 'daemonBaseURL'`))
 			})
 		})
 

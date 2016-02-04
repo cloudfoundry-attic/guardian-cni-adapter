@@ -14,6 +14,9 @@ type Controller struct {
 	PluginDir string
 	ConfigDir string
 
+	SandboxDirPath string
+	DaemonBaseURL  string
+
 	cniConfig      *libcni.CNIConfig
 	networkConfigs []*libcni.NetworkConfig
 }
@@ -59,6 +62,16 @@ func (c *Controller) Up(namespacePath, handle, spec string) error {
 		return fmt.Errorf("failed to initialize controller: %s", err)
 	}
 
+	err = os.Setenv("DUCATI_OS_SANDBOX_REPO", c.SandboxDirPath)
+	if err != nil {
+		return err
+	}
+
+	err = os.Setenv("DAEMON_BASE_URL", c.DaemonBaseURL)
+	if err != nil {
+		return err
+	}
+
 	for i, networkConfig := range c.networkConfigs {
 		runtimeConfig := &libcni.RuntimeConf{
 			ContainerID: handle,
@@ -78,6 +91,16 @@ func (c *Controller) Down(namespacePath, handle string) error {
 	err := c.ensureInitialized()
 	if err != nil {
 		return fmt.Errorf("failed to initialize controller: %s", err)
+	}
+
+	err = os.Setenv("DUCATI_OS_SANDBOX_REPO", c.SandboxDirPath)
+	if err != nil {
+		return err
+	}
+
+	err = os.Setenv("DAEMON_BASE_URL", c.DaemonBaseURL)
+	if err != nil {
+		return err
 	}
 
 	for i, networkConfig := range c.networkConfigs {
