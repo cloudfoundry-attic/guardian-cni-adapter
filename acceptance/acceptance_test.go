@@ -38,10 +38,11 @@ func writeConfig(index int, outDir string) error {
 
 var _ = Describe("Guardian CNI adapter", func() {
 	var (
-		command      *exec.Cmd
-		cniConfigDir string
-		fakePid      int
-		fakeLogDir   string
+		command           *exec.Cmd
+		cniConfigDir      string
+		fakePid           int
+		fakeLogDir        string
+		expectedNetNSPath string
 	)
 
 	BeforeEach(func() {
@@ -57,6 +58,8 @@ var _ = Describe("Guardian CNI adapter", func() {
 
 		fakePid = rand.Intn(30000)
 		command.Stdin = strings.NewReader(fmt.Sprintf(`{ "pid": %d }`, fakePid))
+
+		expectedNetNSPath = fmt.Sprintf("/proc/%d/ns/net", fakePid)
 
 		Expect(writeConfig(0, cniConfigDir)).To(Succeed())
 		Expect(writeConfig(1, cniConfigDir)).To(Succeed())
@@ -97,6 +100,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_CONTAINERID", "some-container-handle"))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_PATH", cniPluginDir))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_NETNS", expectedNetNSPath))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DUCATI_OS_SANDBOX_REPO", "some-sandbox"))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DAEMON_BASE_URL", "http://example.com"))
 			}
@@ -131,6 +135,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_CONTAINERID", "some-container-handle"))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_PATH", cniPluginDir))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_NETNS", expectedNetNSPath))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DUCATI_OS_SANDBOX_REPO", "some-sandbox"))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DAEMON_BASE_URL", "http://example.com"))
 			}
