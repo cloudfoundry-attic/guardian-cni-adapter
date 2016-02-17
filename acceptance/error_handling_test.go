@@ -30,6 +30,9 @@ var _ = Describe("Guardian CNI adapter", func() {
 		fakeLogDir, err = ioutil.TempDir("", "fake-logs-")
 		Expect(err).NotTo(HaveOccurred())
 
+		bindMountRoot, err := ioutil.TempDir("", "bind-mount-root")
+		Expect(err).NotTo(HaveOccurred())
+
 		command = exec.Command(pathToAdapter)
 		command.Args = []string{pathToAdapter,
 			"up",
@@ -39,6 +42,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 			"--cniConfigDir", cniConfigDir,
 			"--ducatiSandboxDir", "some-sandbox-dir",
 			"--daemonBaseURL", "http://example.com",
+			"--nsBindMountRoot", bindMountRoot,
 		}
 		command.Env = []string{"FAKE_LOG_DIR=" + fakeLogDir}
 
@@ -121,6 +125,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 					"--cniConfigDir", cniConfigDir,
 					"--ducatiSandboxDir", "some-sandbox-dir",
 					"--daemonBaseURL", "http://example.com",
+					"--nsBindMountRoot", "/var/some/mount",
 				}
 
 				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
@@ -141,6 +146,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 					"--cniConfigDir", cniConfigDir,
 					"--ducatiSandboxDir", "some-sandbox-dir",
 					"--daemonBaseURL", "http://example.com",
+					"--nsBindMountRoot", "/var/some/mount",
 				}
 
 				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
@@ -161,6 +167,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 					"--cniConfigDir", cniConfigDir,
 					"--ducatiSandboxDir", "some-sandbox-dir",
 					"--daemonBaseURL", "http://example.com",
+					"--nsBindMountRoot", "/var/some/mount",
 				}
 
 				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
@@ -181,6 +188,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 					"--cniPluginDir", cniPluginDir,
 					"--ducatiSandboxDir", "some-sandbox-dir",
 					"--daemonBaseURL", "http://example.com",
+					"--nsBindMountRoot", "/var/some/mount",
 				}
 
 				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
@@ -201,6 +209,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 					"--cniConfigDir", cniConfigDir,
 					"--cniPluginDir", cniPluginDir,
 					"--daemonBaseURL", "http://example.com",
+					"--nsBindMountRoot", "/var/some/mount",
 				}
 
 				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
@@ -221,6 +230,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 					"--cniConfigDir", cniConfigDir,
 					"--cniPluginDir", cniPluginDir,
 					"--ducatiSandboxDir", "some-sandbox-dir",
+					"--nsBindMountRoot", "/var/some/mount",
 				}
 
 				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
@@ -229,6 +239,27 @@ var _ = Describe("Guardian CNI adapter", func() {
 				Eventually(session).Should(gexec.Exit(1))
 				Expect(session.Out.Contents()).To(BeEmpty())
 				Expect(session.Err.Contents()).To(ContainSubstring(`missing required flag 'daemonBaseURL'`))
+			})
+		})
+
+		Context("when the nsBindMountRoot arg is missing", func() {
+			It("should return an error", func() {
+				command.Args = []string{pathToAdapter,
+					"up",
+					"--handle", "some-container-handle",
+					"--network", "some-network-spec",
+					"--cniConfigDir", cniConfigDir,
+					"--cniPluginDir", cniPluginDir,
+					"--daemonBaseURL", "http://example.com",
+					"--ducatiSandboxDir", "some-sandbox-dir",
+				}
+
+				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(session).Should(gexec.Exit(1))
+				Expect(session.Out.Contents()).To(BeEmpty())
+				Expect(session.Err.Contents()).To(ContainSubstring(`missing required flag 'nsBindMountRoot'`))
 			})
 		})
 

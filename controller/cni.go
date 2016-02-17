@@ -10,7 +10,7 @@ import (
 	"github.com/appc/cni/libcni"
 )
 
-type Controller struct {
+type CNIController struct {
 	PluginDir string
 	ConfigDir string
 
@@ -21,7 +21,7 @@ type Controller struct {
 	networkConfigs []*libcni.NetworkConfig
 }
 
-func (c *Controller) ensureInitialized() error {
+func (c *CNIController) ensureInitialized() error {
 	if c.cniConfig == nil {
 		c.cniConfig = &libcni.CNIConfig{Path: []string{c.PluginDir}}
 	}
@@ -56,7 +56,7 @@ func (c *Controller) ensureInitialized() error {
 	return nil
 }
 
-func (c *Controller) Up(namespacePath, handle, spec string) error {
+func (c *CNIController) Up(namespacePath, handle, spec string) error {
 	err := c.ensureInitialized()
 	if err != nil {
 		return fmt.Errorf("failed to initialize controller: %s", err)
@@ -87,7 +87,7 @@ func (c *Controller) Up(namespacePath, handle, spec string) error {
 	return nil
 }
 
-func (c *Controller) Down(namespacePath, handle string) error {
+func (c *CNIController) Down(namespacePath, handle string) error {
 	err := c.ensureInitialized()
 	if err != nil {
 		return fmt.Errorf("failed to initialize controller: %s", err)
@@ -111,7 +111,7 @@ func (c *Controller) Down(namespacePath, handle string) error {
 		}
 		err = c.cniConfig.DelNetwork(networkConfig, runtimeConfig)
 		if err != nil {
-			return fmt.Errorf("add network failed: %s", err)
+			return fmt.Errorf("del network failed: %s", err)
 		}
 	}
 

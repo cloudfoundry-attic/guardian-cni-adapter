@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -19,6 +18,7 @@ var (
 	cniConfigDir     string
 	ducatiSandboxDir string
 	daemonBaseURL    string
+	nsBindMountRoot  string
 )
 
 func parseArgs(allArgs []string) error {
@@ -30,6 +30,7 @@ func parseArgs(allArgs []string) error {
 	flagSet.StringVar(&cniConfigDir, "cniConfigDir", "", "")
 	flagSet.StringVar(&ducatiSandboxDir, "ducatiSandboxDir", "", "")
 	flagSet.StringVar(&daemonBaseURL, "daemonBaseURL", "", "")
+	flagSet.StringVar(&nsBindMountRoot, "nsBindMountRoot", "", "")
 
 	allArgs = allArgs[1:]
 	err := flagSet.Parse(allArgs)
@@ -67,6 +68,9 @@ func parseArgs(allArgs []string) error {
 	if daemonBaseURL == "" {
 		log.Fatalf("missing required flag 'daemonBaseURL'")
 	}
+	if nsBindMountRoot == "" {
+		log.Fatalf("missing required flag 'nsBindMountRoot'")
+	}
 	if action == "up" && networkSpec == "" {
 		log.Fatalf("missing required flag 'network'")
 	}
@@ -91,32 +95,38 @@ func main() {
 	if err != nil {
 		log.Fatalf("input is not valid json: %s: %q", err, string(inputBytes))
 	}
-	if containerState.Pid == 0 {
-		log.Fatalf("missing pid")
-	}
 
 	err = parseArgs(os.Args)
 	if err != nil {
 		log.Fatalf("arg parsing error: %s", err)
 	}
 
-	myController := controller.Controller{
+	cniController := &controller.CNIController{
 		PluginDir:      cniPluginDir,
 		ConfigDir:      cniConfigDir,
 		SandboxDirPath: ducatiSandboxDir,
 		DaemonBaseURL:  daemonBaseURL,
 	}
 
-	namespacePath := fmt.Sprintf("/proc/%d/ns/net", containerState.Pid)
+	mounter := &controller.Mounter{}
+
+	manager := &controller.Manager{
+		CNIController: cniController,
+		Mounter:       mounter,
+		BindMountRoot: nsBindMountRoot,
+	}
 
 	switch action {
 	case "up":
-		err = myController.Up(namespacePath, handle, "some-spec-not-set")
+		if containerState.Pid == 0 {
+			log.Fatalf("missing pid")
+		}
+		err = manager.Up(containerState.Pid, handle, "some-spec-not-set")
 		if err != nil {
 			log.Fatalf("up failed: %s", err)
 		}
 	case "down":
-		err = myController.Down(namespacePath, handle)
+		err = manager.Down(handle)
 		if err != nil {
 			log.Fatalf("down failed: %s", err)
 		}
