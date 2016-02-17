@@ -103,6 +103,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_NETNS", expectedNetNSPath))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DUCATI_OS_SANDBOX_REPO", "some-sandbox"))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DAEMON_BASE_URL", "http://example.com"))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
 			}
 		})
 	})
@@ -138,6 +139,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_NETNS", expectedNetNSPath))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DUCATI_OS_SANDBOX_REPO", "some-sandbox"))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DAEMON_BASE_URL", "http://example.com"))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
 			}
 		})
 	})
