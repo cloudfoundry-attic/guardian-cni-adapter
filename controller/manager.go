@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 )
@@ -24,6 +25,16 @@ type Manager struct {
 }
 
 func (m *Manager) Up(pid int, containerHandle, networkSpec string) error {
+	if pid == 0 {
+		return errors.New("up missing pid")
+	}
+	if containerHandle == "" {
+		return errors.New("up missing container handle")
+	}
+	if networkSpec == "" {
+		return errors.New("up missing network spec")
+	}
+
 	procNsPath := fmt.Sprintf("/proc/%d/ns/net", pid)
 	bindMountPath := filepath.Join(m.BindMountRoot, containerHandle)
 
@@ -41,6 +52,10 @@ func (m *Manager) Up(pid int, containerHandle, networkSpec string) error {
 }
 
 func (m *Manager) Down(containerHandle string) error {
+	if containerHandle == "" {
+		return errors.New("down missing container handle")
+	}
+
 	bindMountPath := filepath.Join(m.BindMountRoot, containerHandle)
 
 	err := m.CNIController.Down(bindMountPath, containerHandle)

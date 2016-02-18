@@ -118,10 +118,7 @@ func main() {
 
 	switch action {
 	case "up":
-		if containerState.Pid == 0 {
-			log.Fatalf("missing pid")
-		}
-		err = manager.Up(containerState.Pid, handle, "some-spec-not-set")
+		err = manager.Up(containerState.Pid, handle, networkSpec)
 		if err != nil {
 			log.Fatalf("up failed: %s", err)
 		}

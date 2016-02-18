@@ -45,6 +45,19 @@ var _ = Describe("Manager", func() {
 			Expect(spec).To(Equal("some-network-spec"))
 		})
 
+		Context("when missing args", func() {
+			It("should return a friendly error", func() {
+				err := manager.Up(0, "some-container-handle", "some-network-spec")
+				Expect(err).To(MatchError("up missing pid"))
+
+				err = manager.Up(42, "", "some-network-spec")
+				Expect(err).To(MatchError("up missing container handle"))
+
+				err = manager.Up(42, "some-container-handle", "")
+				Expect(err).To(MatchError("up missing network spec"))
+			})
+		})
+
 		Context("when things fail", func() {
 			Context("when the mounter fails", func() {
 				It("should return the error", func() {
@@ -78,6 +91,13 @@ var _ = Describe("Manager", func() {
 			namespacePath, handle := cniController.DownArgsForCall(0)
 			Expect(namespacePath).To(Equal("/some/fake/path/some-container-handle"))
 			Expect(handle).To(Equal("some-container-handle"))
+		})
+
+		Context("when missing args", func() {
+			It("should return a friendly error", func() {
+				err := manager.Down("")
+				Expect(err).To(MatchError("down missing container handle"))
+			})
 		})
 
 		Context("when things fail", func() {
