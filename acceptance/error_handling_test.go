@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 )
@@ -36,13 +36,13 @@ var _ = Describe("Guardian CNI adapter", func() {
 		command = exec.Command(pathToAdapter)
 		command.Args = []string{pathToAdapter,
 			"up",
-			"--handle", "some-container-handle",
-			"--network", "some-network-spec",
-			"--cniPluginDir", cniPluginDir,
-			"--cniConfigDir", cniConfigDir,
-			"--ducatiSandboxDir", "some-sandbox-dir",
-			"--daemonBaseURL", "http://example.com",
-			"--nsBindMountRoot", bindMountRoot,
+			"--handle=some-container-handle",
+			"--network=some-network-spec",
+			"--cniPluginDir=" + cniPluginDir,
+			"--cniConfigDir=" + cniConfigDir,
+			"--ducatiSandboxDir=" + "some-sandbox-dir",
+			"--daemonBaseURL=" + "http://example.com",
+			"--nsBindMountRoot=" + bindMountRoot,
 		}
 		command.Env = []string{"FAKE_LOG_DIR=" + fakeLogDir}
 
@@ -116,153 +116,6 @@ var _ = Describe("Guardian CNI adapter", func() {
 			})
 		})
 
-		Context("when the handle arg is missing", func() {
-			It("should return an error", func() {
-				command.Args = []string{pathToAdapter,
-					"up",
-					"--network", "some-network-spec",
-					"--cniPluginDir", cniPluginDir,
-					"--cniConfigDir", cniConfigDir,
-					"--ducatiSandboxDir", "some-sandbox-dir",
-					"--daemonBaseURL", "http://example.com",
-					"--nsBindMountRoot", "/var/some/mount",
-				}
-
-				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
-				Expect(err).NotTo(HaveOccurred())
-
-				Eventually(session).Should(gexec.Exit(1))
-				Expect(session.Out.Contents()).To(BeEmpty())
-				Expect(session.Err.Contents()).To(ContainSubstring(`missing required flag 'handle'`))
-			})
-		})
-
-		Context("when the network arg is missing", func() {
-			It("should return an error", func() {
-				command.Args = []string{pathToAdapter,
-					"up",
-					"--handle", "some-container-handle",
-					"--cniPluginDir", cniPluginDir,
-					"--cniConfigDir", cniConfigDir,
-					"--ducatiSandboxDir", "some-sandbox-dir",
-					"--daemonBaseURL", "http://example.com",
-					"--nsBindMountRoot", "/var/some/mount",
-				}
-
-				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
-				Expect(err).NotTo(HaveOccurred())
-
-				Eventually(session).Should(gexec.Exit(1))
-				Expect(session.Out.Contents()).To(BeEmpty())
-				Expect(session.Err.Contents()).To(ContainSubstring(`missing required flag 'network'`))
-			})
-		})
-
-		Context("when the cniPluginDir arg is missing", func() {
-			It("should return an error", func() {
-				command.Args = []string{pathToAdapter,
-					"up",
-					"--handle", "some-container-handle",
-					"--network", "some-network-spec",
-					"--cniConfigDir", cniConfigDir,
-					"--ducatiSandboxDir", "some-sandbox-dir",
-					"--daemonBaseURL", "http://example.com",
-					"--nsBindMountRoot", "/var/some/mount",
-				}
-
-				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
-				Expect(err).NotTo(HaveOccurred())
-
-				Eventually(session).Should(gexec.Exit(1))
-				Expect(session.Out.Contents()).To(BeEmpty())
-				Expect(session.Err.Contents()).To(ContainSubstring(`missing required flag 'cniPluginDir'`))
-			})
-		})
-
-		Context("when the cniConfigDir arg is missing", func() {
-			It("should return an error", func() {
-				command.Args = []string{pathToAdapter,
-					"up",
-					"--handle", "some-container-handle",
-					"--network", "some-network-spec",
-					"--cniPluginDir", cniPluginDir,
-					"--ducatiSandboxDir", "some-sandbox-dir",
-					"--daemonBaseURL", "http://example.com",
-					"--nsBindMountRoot", "/var/some/mount",
-				}
-
-				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
-				Expect(err).NotTo(HaveOccurred())
-
-				Eventually(session).Should(gexec.Exit(1))
-				Expect(session.Out.Contents()).To(BeEmpty())
-				Expect(session.Err.Contents()).To(ContainSubstring(`missing required flag 'cniConfigDir'`))
-			})
-		})
-
-		Context("when the ducatiSandboxDir arg is missing", func() {
-			It("should return an error", func() {
-				command.Args = []string{pathToAdapter,
-					"up",
-					"--handle", "some-container-handle",
-					"--network", "some-network-spec",
-					"--cniConfigDir", cniConfigDir,
-					"--cniPluginDir", cniPluginDir,
-					"--daemonBaseURL", "http://example.com",
-					"--nsBindMountRoot", "/var/some/mount",
-				}
-
-				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
-				Expect(err).NotTo(HaveOccurred())
-
-				Eventually(session).Should(gexec.Exit(1))
-				Expect(session.Out.Contents()).To(BeEmpty())
-				Expect(session.Err.Contents()).To(ContainSubstring(`missing required flag 'ducatiSandboxDir'`))
-			})
-		})
-
-		Context("when the daemonBaseURL arg is missing", func() {
-			It("should return an error", func() {
-				command.Args = []string{pathToAdapter,
-					"up",
-					"--handle", "some-container-handle",
-					"--network", "some-network-spec",
-					"--cniConfigDir", cniConfigDir,
-					"--cniPluginDir", cniPluginDir,
-					"--ducatiSandboxDir", "some-sandbox-dir",
-					"--nsBindMountRoot", "/var/some/mount",
-				}
-
-				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
-				Expect(err).NotTo(HaveOccurred())
-
-				Eventually(session).Should(gexec.Exit(1))
-				Expect(session.Out.Contents()).To(BeEmpty())
-				Expect(session.Err.Contents()).To(ContainSubstring(`missing required flag 'daemonBaseURL'`))
-			})
-		})
-
-		Context("when the nsBindMountRoot arg is missing", func() {
-			It("should return an error", func() {
-				command.Args = []string{pathToAdapter,
-					"up",
-					"--handle", "some-container-handle",
-					"--network", "some-network-spec",
-					"--cniConfigDir", cniConfigDir,
-					"--cniPluginDir", cniPluginDir,
-					"--daemonBaseURL", "http://example.com",
-					"--ducatiSandboxDir", "some-sandbox-dir",
-				}
-
-				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
-				Expect(err).NotTo(HaveOccurred())
-
-				Eventually(session).Should(gexec.Exit(1))
-				Expect(session.Out.Contents()).To(BeEmpty())
-				Expect(session.Err.Contents()).To(ContainSubstring(`missing required flag 'nsBindMountRoot'`))
-			})
-		})
-
 		Context("when an unknown flag is provided", func() {
 			It("should return an error", func() {
 				command.Args = append(command.Args, "--banana")
@@ -289,8 +142,40 @@ var _ = Describe("Guardian CNI adapter", func() {
 			})
 		})
 
+		var removeArrayElement = func(src []string, elementToRemove string) []string {
+			reduced := []string{}
+			for _, element := range src {
+				if !strings.HasPrefix(element, elementToRemove) {
+					reduced = append(reduced, element)
+				}
+			}
+
+			return reduced
+		}
+
+		DescribeTable("missing required arguments",
+			func(missingFlag string) {
+				command.Args = removeArrayElement(command.Args, "--"+missingFlag)
+
+				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(session).Should(gexec.Exit(1))
+				Expect(session.Out.Contents()).To(BeEmpty())
+				Expect(session.Err.Contents()).To(ContainSubstring(
+					fmt.Sprintf("missing required flag '%s'", missingFlag)))
+			},
+			Entry("handle", "handle"),
+			Entry("network", "network"),
+			Entry("cniPluginDir", "cniPluginDir"),
+			Entry("cniConfigDir", "cniConfigDir"),
+			Entry("ducatiSandboxDir", "ducatiSandboxDir"),
+			Entry("daemonBaseURL", "daemonBaseURL"),
+			Entry("nsBindMountRoot", "nsBindMountRoot"),
+		)
+
 		Context("when the user doesn't know what to do", func() {
-			table.DescribeTable("arguments that indicate ignorance",
+			DescribeTable("arguments that indicate ignorance",
 				func(args []string) {
 					command.Args = args
 					command.Stdin = strings.NewReader("invalid json")
@@ -302,9 +187,9 @@ var _ = Describe("Guardian CNI adapter", func() {
 					Expect(session.Out.Contents()).To(BeEmpty())
 					Expect(session.Err.Contents()).To(ContainSubstring(`this is a OCI prestart/poststop hook.  see https://github.com/opencontainers/specs/blob/master/runtime-config.md`))
 				},
-				table.Entry("no args", []string{pathToAdapter}),
-				table.Entry("short help", []string{pathToAdapter, "-h"}),
-				table.Entry("long help", []string{pathToAdapter, "--help"}),
+				Entry("no args", []string{pathToAdapter}),
+				Entry("short help", []string{pathToAdapter, "-h"}),
+				Entry("long help", []string{pathToAdapter, "--help"}),
 			)
 		})
 	})
