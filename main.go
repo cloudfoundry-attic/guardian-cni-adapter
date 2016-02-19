@@ -3,9 +3,12 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/cloudfoundry-incubator/guardian-cni-adapter/controller"
 )
@@ -19,7 +22,27 @@ var (
 	ducatiSandboxDir string
 	daemonBaseURL    string
 	nsBindMountRoot  string
+	logDir           string
 )
+
+func setupLogging(logDir, handle string) error {
+	if logDir == "" {
+		return nil
+	}
+
+	if err := os.MkdirAll(logDir, 0644); err != nil {
+		return fmt.Errorf("unable to create log dir %q: %s", logDir, err)
+	}
+
+	logFilePath := filepath.Join(logDir, handle+".log")
+	logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return fmt.Errorf("unable to create log file %q: %s", logFilePath, err)
+	}
+	log.SetOutput(io.MultiWriter(os.Stderr, logFile))
+	log.Printf("started logging to %s\n", logFilePath)
+	return nil
+}
 
 func parseArgs(allArgs []string) error {
 	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
@@ -31,11 +54,12 @@ func parseArgs(allArgs []string) error {
 	flagSet.StringVar(&ducatiSandboxDir, "ducatiSandboxDir", "", "")
 	flagSet.StringVar(&daemonBaseURL, "daemonBaseURL", "", "")
 	flagSet.StringVar(&nsBindMountRoot, "nsBindMountRoot", "", "")
+	flagSet.StringVar(&logDir, "logDir", "", "")
 
 	allArgs = allArgs[1:]
 	err := flagSet.Parse(allArgs)
 	if err != nil {
-		os.Exit(1) // exit, error was already printed to stderr by flagSet.Parse
+		return err
 	}
 	extraArgs := flagSet.Args()
 
@@ -44,35 +68,40 @@ func parseArgs(allArgs []string) error {
 		extraArgs = extraArgs[1:]
 		err = flagSet.Parse(extraArgs)
 		if err != nil {
-			os.Exit(1) // exit, error already printed
+			return err
 		}
 		extraArgs = flagSet.Args()
 	}
 
 	if len(extraArgs) > 0 {
-		log.Fatalf("unexpected extra args: %+v", flagSet.Args())
+		return fmt.Errorf("unexpected extra args: %+v", flagSet.Args())
 	}
 
 	if handle == "" {
-		log.Fatalf("missing required flag 'handle'")
+		return fmt.Errorf("missing required flag 'handle'")
 	}
+
+	if err := setupLogging(logDir, handle); err != nil {
+		return fmt.Errorf("failed setting up logging: %s", err)
+	}
+
 	if cniPluginDir == "" {
-		log.Fatalf("missing required flag 'cniPluginDir'")
+		return fmt.Errorf("missing required flag 'cniPluginDir'")
 	}
 	if cniConfigDir == "" {
-		log.Fatalf("missing required flag 'cniConfigDir'")
+		return fmt.Errorf("missing required flag 'cniConfigDir'")
 	}
 	if ducatiSandboxDir == "" {
-		log.Fatalf("missing required flag 'ducatiSandboxDir'")
+		return fmt.Errorf("missing required flag 'ducatiSandboxDir'")
 	}
 	if daemonBaseURL == "" {
-		log.Fatalf("missing required flag 'daemonBaseURL'")
+		return fmt.Errorf("missing required flag 'daemonBaseURL'")
 	}
 	if nsBindMountRoot == "" {
-		log.Fatalf("missing required flag 'nsBindMountRoot'")
+		return fmt.Errorf("missing required flag 'nsBindMountRoot'")
 	}
 	if action == "up" && networkSpec == "" {
-		log.Fatalf("missing required flag 'network'")
+		return fmt.Errorf("missing required flag 'network'")
 	}
 
 	return nil

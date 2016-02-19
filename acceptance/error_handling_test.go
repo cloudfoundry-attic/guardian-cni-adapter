@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	. "github.com/onsi/ginkgo"
@@ -16,35 +17,33 @@ import (
 
 var _ = Describe("Guardian CNI adapter", func() {
 	var (
-		command      *exec.Cmd
-		cniConfigDir string
-		fakePid      int
-		fakeLogDir   string
+		command            *exec.Cmd
+		cniConfigDir       string
+		fakePid            int
+		fakeLogDir         string
+		adapterLogFilePath string
 	)
 
 	BeforeEach(func() {
 		var err error
-		cniConfigDir, err = ioutil.TempDir("", "cni-config-")
+		adapterLogDir, err := ioutil.TempDir("", "adapter-log-dir")
 		Expect(err).NotTo(HaveOccurred())
+		Expect(os.RemoveAll(adapterLogDir)).To(Succeed()) // directory need not exist
 
-		fakeLogDir, err = ioutil.TempDir("", "fake-logs-")
-		Expect(err).NotTo(HaveOccurred())
-
-		bindMountRoot, err := ioutil.TempDir("", "bind-mount-root")
-		Expect(err).NotTo(HaveOccurred())
+		adapterLogFilePath = filepath.Join(adapterLogDir, "some-container-handle.log")
 
 		command = exec.Command(pathToAdapter)
 		command.Args = []string{pathToAdapter,
 			"up",
 			"--handle=some-container-handle",
 			"--network=some-network-spec",
-			"--cniPluginDir=" + cniPluginDir,
-			"--cniConfigDir=" + cniConfigDir,
+			"--cniPluginDir=" + "some/cni/plugin/dir",
+			"--cniConfigDir=" + "some/cni/config/dir",
 			"--ducatiSandboxDir=" + "some-sandbox-dir",
 			"--daemonBaseURL=" + "http://example.com",
-			"--nsBindMountRoot=" + bindMountRoot,
+			"--nsBindMountRoot=" + "/some/bind/mount/root/path",
+			"--logDir=" + adapterLogDir,
 		}
-		command.Env = []string{"FAKE_LOG_DIR=" + fakeLogDir}
 
 		fakePid = rand.Intn(30000)
 		command.Stdin = strings.NewReader(fmt.Sprintf(`{ "pid": %d }`, fakePid))
@@ -74,8 +73,10 @@ var _ = Describe("Guardian CNI adapter", func() {
 
 				Eventually(session).Should(gexec.Exit(1))
 				Expect(session.Out.Contents()).To(BeEmpty())
+				By("checking that the error was logged to stderr")
 				Expect(session.Err.Contents()).To(ContainSubstring("json"))
 				Expect(session.Err.Contents()).To(ContainSubstring("{{{bad"))
+
 			})
 		})
 
@@ -113,6 +114,24 @@ var _ = Describe("Guardian CNI adapter", func() {
 				Eventually(session).Should(gexec.Exit(1))
 				Expect(session.Out.Contents()).To(BeEmpty())
 				Expect(session.Err.Contents()).To(ContainSubstring(`action: some-invalid-action is unrecognized`))
+
+				By("checking that the error was logged to a file")
+				Expect(ioutil.ReadFile(adapterLogFilePath)).To(ContainSubstring("action: some-invalid-action"))
+			})
+
+			Context("when the log file already exists", func() {
+				It("should append to it", func() {
+					Expect(os.MkdirAll(filepath.Dir(adapterLogFilePath), 0644)).To(Succeed())
+					Expect(ioutil.WriteFile(adapterLogFilePath, []byte("some existing logs\n"), 0644)).To(Succeed())
+
+					command.Args[1] = "some-invalid-action"
+					session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
+					Expect(err).NotTo(HaveOccurred())
+
+					Eventually(session).Should(gexec.Exit(1))
+					Expect(ioutil.ReadFile(adapterLogFilePath)).To(HavePrefix("some existing logs"))
+					Expect(ioutil.ReadFile(adapterLogFilePath)).To(ContainSubstring("action: some-invalid-action"))
+				})
 			})
 		})
 
@@ -160,10 +179,18 @@ var _ = Describe("Guardian CNI adapter", func() {
 				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
 
+				By("checking that process exits with an err")
 				Eventually(session).Should(gexec.Exit(1))
+
+				By("checking that the error was logged to stderr")
 				Expect(session.Out.Contents()).To(BeEmpty())
-				Expect(session.Err.Contents()).To(ContainSubstring(
-					fmt.Sprintf("missing required flag '%s'", missingFlag)))
+				expectedErrorString := fmt.Sprintf("missing required flag '%s'", missingFlag)
+				Expect(session.Err.Contents()).To(ContainSubstring(expectedErrorString))
+
+				By("checking that the error was logged to a file")
+				if missingFlag != "handle" {
+					Expect(ioutil.ReadFile(adapterLogFilePath)).To(ContainSubstring(expectedErrorString))
+				}
 			},
 			Entry("handle", "handle"),
 			Entry("network", "network"),
