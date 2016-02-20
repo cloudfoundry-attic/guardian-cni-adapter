@@ -47,10 +47,6 @@ var _ = Describe("Guardian CNI adapter", func() {
 
 		fakePid = rand.Intn(30000)
 		command.Stdin = strings.NewReader(fmt.Sprintf(`{ "pid": %d }`, fakePid))
-
-		Expect(writeConfig(0, cniConfigDir)).To(Succeed())
-		Expect(writeConfig(1, cniConfigDir)).To(Succeed())
-		Expect(writeConfig(2, cniConfigDir)).To(Succeed())
 	})
 
 	AfterEach(func() {
