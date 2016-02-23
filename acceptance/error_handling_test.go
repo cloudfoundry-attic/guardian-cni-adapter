@@ -34,7 +34,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 
 		command = exec.Command(pathToAdapter)
 		command.Args = []string{pathToAdapter,
-			"up",
+			"--action=up",
 			"--handle=some-container-handle",
 			"--network=some-network-spec",
 			"--cniPluginDir=" + "some/cni/plugin/dir",
@@ -102,7 +102,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 
 		Context("when the action is incorrect", func() {
 			It("should return an error", func() {
-				command.Args[1] = "some-invalid-action"
+				command.Args[1] = "--action=some-invalid-action"
 
 				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
@@ -120,7 +120,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 					Expect(os.MkdirAll(filepath.Dir(adapterLogFilePath), 0644)).To(Succeed())
 					Expect(ioutil.WriteFile(adapterLogFilePath, []byte("some existing logs\n"), 0644)).To(Succeed())
 
-					command.Args[1] = "some-invalid-action"
+					command.Args[1] = "--action=some-invalid-action"
 					session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -188,6 +188,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 					Expect(ioutil.ReadFile(adapterLogFilePath)).To(ContainSubstring(expectedErrorString))
 				}
 			},
+			Entry("action", "action"),
 			Entry("handle", "handle"),
 			Entry("network", "network"),
 			Entry("cniPluginDir", "cniPluginDir"),

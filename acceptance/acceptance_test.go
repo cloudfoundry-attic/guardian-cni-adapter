@@ -100,7 +100,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 				"--ducatiSandboxDir", "some-sandbox",
 				"--daemonBaseURL", "http://example.com",
 				"--nsBindMountRoot", bindMountRoot,
-				"up",
+				"--action", "up",
 				"--handle", "some-container-handle",
 				"--network", "some-network-spec",
 			}
@@ -135,7 +135,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 			downCommand.Env = []string{"FAKE_LOG_DIR=" + fakeLogDir}
 			downCommand.Stdin = strings.NewReader(`{}`)
 			downCommand.Args = []string{pathToAdapter,
-				"down",
+				"--action", "down",
 				"--handle", "some-container-handle",
 				"--cniPluginDir", cniPluginDir,
 				"--cniConfigDir", cniConfigDir,

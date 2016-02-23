@@ -47,6 +47,7 @@ func setupLogging(logDir, handle string) error {
 func parseArgs(allArgs []string) error {
 	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
 
+	flagSet.StringVar(&action, "action", "", "")
 	flagSet.StringVar(&handle, "handle", "", "")
 	flagSet.StringVar(&networkSpec, "network", "", "")
 	flagSet.StringVar(&cniPluginDir, "cniPluginDir", "", "")
@@ -56,24 +57,11 @@ func parseArgs(allArgs []string) error {
 	flagSet.StringVar(&nsBindMountRoot, "nsBindMountRoot", "", "")
 	flagSet.StringVar(&logDir, "logDir", "", "")
 
-	allArgs = allArgs[1:]
-	err := flagSet.Parse(allArgs)
+	err := flagSet.Parse(allArgs[1:])
 	if err != nil {
 		return err
 	}
-	extraArgs := flagSet.Args()
-
-	if len(extraArgs) > 0 {
-		action = extraArgs[0]
-		extraArgs = extraArgs[1:]
-		err = flagSet.Parse(extraArgs)
-		if err != nil {
-			return err
-		}
-		extraArgs = flagSet.Args()
-	}
-
-	if len(extraArgs) > 0 {
+	if len(flagSet.Args()) > 0 {
 		return fmt.Errorf("unexpected extra args: %+v", flagSet.Args())
 	}
 
@@ -85,6 +73,9 @@ func parseArgs(allArgs []string) error {
 		return fmt.Errorf("failed setting up logging: %s", err)
 	}
 
+	if action == "" {
+		return fmt.Errorf("missing required flag 'action'")
+	}
 	if cniPluginDir == "" {
 		return fmt.Errorf("missing required flag 'cniPluginDir'")
 	}
