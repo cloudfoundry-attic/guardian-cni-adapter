@@ -44,6 +44,8 @@ func sameFile(path1, path2 string) bool {
 	return os.SameFile(fi1, fi2)
 }
 
+const DEFAULT_TIMEOUT = "5s"
+
 var _ = Describe("Guardian CNI adapter", func() {
 	var (
 		cniConfigDir      string
@@ -107,7 +109,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 
 			upSession, err := gexec.Start(upCommand, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(upSession).Should(gexec.Exit(0))
+			Eventually(upSession, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
 
 			By("checking that every CNI plugin in the plugin directory got called with ADD")
 			for i := 0; i < 3; i++ {
@@ -146,7 +148,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 
 			downSession, err := gexec.Start(downCommand, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(downSession).Should(gexec.Exit(0))
+			Eventually(downSession, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
 
 			By("checking that every CNI plugin in the plugin directory got called with DEL")
 			for i := 0; i < 3; i++ {

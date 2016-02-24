@@ -30,10 +30,10 @@ var _ = BeforeSuite(func() {
 	rand.Seed(config.GinkgoConfig.RandomSeed)
 
 	var err error
-	pathToAdapter, err = gexec.Build("github.com/cloudfoundry-incubator/guardian-cni-adapter")
+	pathToAdapter, err = gexec.Build("github.com/cloudfoundry-incubator/guardian-cni-adapter", "-race")
 	Expect(err).NotTo(HaveOccurred())
 
-	pathToFakeCNIPlugin, err := gexec.Build("github.com/cloudfoundry-incubator/guardian-cni-adapter/acceptance/fake-cni-plugin")
+	pathToFakeCNIPlugin, err := gexec.Build("github.com/cloudfoundry-incubator/guardian-cni-adapter/acceptance/fake-cni-plugin", "-race")
 	Expect(err).NotTo(HaveOccurred())
 
 	cniPluginDir, err = ioutil.TempDir("", "cni-plugin-")
