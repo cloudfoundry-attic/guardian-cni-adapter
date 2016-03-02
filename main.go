@@ -20,7 +20,6 @@ var (
 	cniPluginDir     string
 	cniConfigDir     string
 	ducatiSandboxDir string
-	daemonBaseURL    string
 	nsBindMountRoot  string
 	logDir           string
 )
@@ -53,7 +52,6 @@ func parseArgs(allArgs []string) error {
 	flagSet.StringVar(&cniPluginDir, "cniPluginDir", "", "")
 	flagSet.StringVar(&cniConfigDir, "cniConfigDir", "", "")
 	flagSet.StringVar(&ducatiSandboxDir, "ducatiSandboxDir", "", "")
-	flagSet.StringVar(&daemonBaseURL, "daemonBaseURL", "", "")
 	flagSet.StringVar(&nsBindMountRoot, "nsBindMountRoot", "", "")
 	flagSet.StringVar(&logDir, "logDir", "", "")
 
@@ -84,9 +82,6 @@ func parseArgs(allArgs []string) error {
 	}
 	if ducatiSandboxDir == "" {
 		return fmt.Errorf("missing required flag 'ducatiSandboxDir'")
-	}
-	if daemonBaseURL == "" {
-		return fmt.Errorf("missing required flag 'daemonBaseURL'")
 	}
 	if nsBindMountRoot == "" {
 		return fmt.Errorf("missing required flag 'nsBindMountRoot'")
@@ -125,7 +120,6 @@ func main() {
 		PluginDir:      cniPluginDir,
 		ConfigDir:      cniConfigDir,
 		SandboxDirPath: ducatiSandboxDir,
-		DaemonBaseURL:  daemonBaseURL,
 	}
 
 	mounter := &controller.Mounter{}

@@ -100,7 +100,6 @@ var _ = Describe("Guardian CNI adapter", func() {
 				"--cniPluginDir", cniPluginDir,
 				"--cniConfigDir", cniConfigDir,
 				"--ducatiSandboxDir", "some-sandbox",
-				"--daemonBaseURL", "http://example.com",
 				"--nsBindMountRoot", bindMountRoot,
 				"--action", "up",
 				"--handle", "some-container-handle",
@@ -125,7 +124,6 @@ var _ = Describe("Guardian CNI adapter", func() {
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_PATH", cniPluginDir))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_NETNS", expectedNetNSPath))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DUCATI_OS_SANDBOX_REPO", "some-sandbox"))
-				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DAEMON_BASE_URL", "http://example.com"))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
 			}
 
@@ -142,7 +140,6 @@ var _ = Describe("Guardian CNI adapter", func() {
 				"--cniPluginDir", cniPluginDir,
 				"--cniConfigDir", cniConfigDir,
 				"--ducatiSandboxDir", "some-sandbox",
-				"--daemonBaseURL", "http://example.com",
 				"--nsBindMountRoot", bindMountRoot,
 			}
 
@@ -164,7 +161,6 @@ var _ = Describe("Guardian CNI adapter", func() {
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_PATH", cniPluginDir))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_NETNS", expectedNetNSPath))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DUCATI_OS_SANDBOX_REPO", "some-sandbox"))
-				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DAEMON_BASE_URL", "http://example.com"))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
 			}
 

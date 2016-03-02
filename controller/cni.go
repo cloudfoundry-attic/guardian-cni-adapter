@@ -15,7 +15,6 @@ type CNIController struct {
 	ConfigDir string
 
 	SandboxDirPath string
-	DaemonBaseURL  string
 
 	cniConfig      *libcni.CNIConfig
 	networkConfigs []*libcni.NetworkConfig
@@ -67,11 +66,6 @@ func (c *CNIController) Up(namespacePath, handle, spec string) error {
 		return err
 	}
 
-	err = os.Setenv("DAEMON_BASE_URL", c.DaemonBaseURL)
-	if err != nil {
-		return err
-	}
-
 	for i, networkConfig := range c.networkConfigs {
 		runtimeConfig := &libcni.RuntimeConf{
 			ContainerID: handle,
@@ -94,11 +88,6 @@ func (c *CNIController) Down(namespacePath, handle string) error {
 	}
 
 	err = os.Setenv("DUCATI_OS_SANDBOX_REPO", c.SandboxDirPath)
-	if err != nil {
-		return err
-	}
-
-	err = os.Setenv("DAEMON_BASE_URL", c.DaemonBaseURL)
 	if err != nil {
 		return err
 	}
