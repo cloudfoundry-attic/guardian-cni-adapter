@@ -39,7 +39,6 @@ var _ = Describe("Guardian CNI adapter", func() {
 			"--network=some-network-spec",
 			"--cniPluginDir=" + "some/cni/plugin/dir",
 			"--cniConfigDir=" + "some/cni/config/dir",
-			"--ducatiSandboxDir=" + "some-sandbox-dir",
 			"--nsBindMountRoot=" + "/some/bind/mount/root/path",
 			"--logDir=" + adapterLogDir,
 		}
@@ -192,7 +191,6 @@ var _ = Describe("Guardian CNI adapter", func() {
 			Entry("network", "network"),
 			Entry("cniPluginDir", "cniPluginDir"),
 			Entry("cniConfigDir", "cniConfigDir"),
-			Entry("ducatiSandboxDir", "ducatiSandboxDir"),
 			Entry("nsBindMountRoot", "nsBindMountRoot"),
 		)
 

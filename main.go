@@ -14,14 +14,13 @@ import (
 )
 
 var (
-	action           string
-	handle           string
-	networkSpec      string
-	cniPluginDir     string
-	cniConfigDir     string
-	ducatiSandboxDir string
-	nsBindMountRoot  string
-	logDir           string
+	action          string
+	handle          string
+	networkSpec     string
+	cniPluginDir    string
+	cniConfigDir    string
+	nsBindMountRoot string
+	logDir          string
 )
 
 func setupLogging(logDir, handle string) error {
@@ -51,7 +50,6 @@ func parseArgs(allArgs []string) error {
 	flagSet.StringVar(&networkSpec, "network", "", "")
 	flagSet.StringVar(&cniPluginDir, "cniPluginDir", "", "")
 	flagSet.StringVar(&cniConfigDir, "cniConfigDir", "", "")
-	flagSet.StringVar(&ducatiSandboxDir, "ducatiSandboxDir", "", "")
 	flagSet.StringVar(&nsBindMountRoot, "nsBindMountRoot", "", "")
 	flagSet.StringVar(&logDir, "logDir", "", "")
 
@@ -79,9 +77,6 @@ func parseArgs(allArgs []string) error {
 	}
 	if cniConfigDir == "" {
 		return fmt.Errorf("missing required flag 'cniConfigDir'")
-	}
-	if ducatiSandboxDir == "" {
-		return fmt.Errorf("missing required flag 'ducatiSandboxDir'")
 	}
 	if nsBindMountRoot == "" {
 		return fmt.Errorf("missing required flag 'nsBindMountRoot'")
@@ -117,9 +112,8 @@ func main() {
 	}
 
 	cniController := &controller.CNIController{
-		PluginDir:      cniPluginDir,
-		ConfigDir:      cniConfigDir,
-		SandboxDirPath: ducatiSandboxDir,
+		PluginDir: cniPluginDir,
+		ConfigDir: cniConfigDir,
 	}
 
 	mounter := &controller.Mounter{}

@@ -99,7 +99,6 @@ var _ = Describe("Guardian CNI adapter", func() {
 			upCommand.Args = []string{pathToAdapter,
 				"--cniPluginDir", cniPluginDir,
 				"--cniConfigDir", cniConfigDir,
-				"--ducatiSandboxDir", "some-sandbox",
 				"--nsBindMountRoot", bindMountRoot,
 				"--action", "up",
 				"--handle", "some-container-handle",
@@ -123,7 +122,6 @@ var _ = Describe("Guardian CNI adapter", func() {
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_PATH", cniPluginDir))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_NETNS", expectedNetNSPath))
-				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DUCATI_OS_SANDBOX_REPO", "some-sandbox"))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
 			}
 
@@ -139,7 +137,6 @@ var _ = Describe("Guardian CNI adapter", func() {
 				"--handle", "some-container-handle",
 				"--cniPluginDir", cniPluginDir,
 				"--cniConfigDir", cniConfigDir,
-				"--ducatiSandboxDir", "some-sandbox",
 				"--nsBindMountRoot", bindMountRoot,
 			}
 
@@ -160,7 +157,6 @@ var _ = Describe("Guardian CNI adapter", func() {
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_PATH", cniPluginDir))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_NETNS", expectedNetNSPath))
-				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("DUCATI_OS_SANDBOX_REPO", "some-sandbox"))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
 			}
 
