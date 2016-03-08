@@ -48,13 +48,15 @@ const DEFAULT_TIMEOUT = "5s"
 
 var _ = Describe("Guardian CNI adapter", func() {
 	var (
-		cniConfigDir      string
-		fakePid           int
-		fakeLogDir        string
-		expectedNetNSPath string
-		bindMountRoot     string
-		containerHandle   string
-		fakeProcess       *os.Process
+		cniConfigDir       string
+		fakePid            int
+		fakeLogDir         string
+		expectedNetNSPath  string
+		bindMountRoot      string
+		containerHandle    string
+		fakeProcess        *os.Process
+		fakeConfigFilePath string
+		adapterLogFilePath string
 	)
 
 	BeforeEach(func() {
@@ -78,12 +80,33 @@ var _ = Describe("Guardian CNI adapter", func() {
 
 		expectedNetNSPath = fmt.Sprintf("%s/%s", bindMountRoot, containerHandle)
 
+		adapterLogDir, err := ioutil.TempDir("", "adapter-log-dir")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.RemoveAll(adapterLogDir)).To(Succeed()) // directory need not exist
+		adapterLogFilePath = filepath.Join(adapterLogDir, "some-container-handle.log")
+
 		Expect(writeConfig(0, cniConfigDir)).To(Succeed())
 		Expect(writeConfig(1, cniConfigDir)).To(Succeed())
 		Expect(writeConfig(2, cniConfigDir)).To(Succeed())
+
+		configFile, err := ioutil.TempFile("", "adapter-config-")
+		Expect(err).NotTo(HaveOccurred())
+		fakeConfigFilePath = configFile.Name()
+		config := map[string]string{
+			"cni_plugin_dir": cniPluginDir,
+			"cni_config_dir": cniConfigDir,
+			"bind_mount_dir": bindMountRoot,
+			"log_dir":        adapterLogDir,
+		}
+		configBytes, err := json.Marshal(config)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = configFile.Write(configBytes)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(configFile.Close()).To(Succeed())
 	})
 
 	AfterEach(func() {
+		Expect(os.Remove(fakeConfigFilePath)).To(Succeed())
 		Expect(os.RemoveAll(cniConfigDir)).To(Succeed())
 		Expect(os.RemoveAll(fakeLogDir)).To(Succeed())
 		Expect(fakeProcess.Kill()).To(Succeed())
@@ -97,9 +120,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 			upCommand.Env = []string{"FAKE_LOG_DIR=" + fakeLogDir}
 			upCommand.Stdin = strings.NewReader(fmt.Sprintf(`{ "pid": %d }`, fakePid))
 			upCommand.Args = []string{pathToAdapter,
-				"--cniPluginDir", cniPluginDir,
-				"--cniConfigDir", cniConfigDir,
-				"--nsBindMountRoot", bindMountRoot,
+				"--configFile", fakeConfigFilePath,
 				"--action", "up",
 				"--handle", "some-container-handle",
 				"--network", "some-network-spec",
@@ -135,9 +156,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 			downCommand.Args = []string{pathToAdapter,
 				"--action", "down",
 				"--handle", "some-container-handle",
-				"--cniPluginDir", cniPluginDir,
-				"--cniConfigDir", cniConfigDir,
-				"--nsBindMountRoot", bindMountRoot,
+				"--configFile", fakeConfigFilePath,
 			}
 
 			downSession, err := gexec.Start(downCommand, GinkgoWriter, GinkgoWriter)

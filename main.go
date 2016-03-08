@@ -13,14 +13,18 @@ import (
 	"github.com/cloudfoundry-incubator/guardian-cni-adapter/controller"
 )
 
+type Config struct {
+	CniPluginDir string `json:"cni_plugin_dir"`
+	CniConfigDir string `json:"cni_config_dir"`
+	BindMountDir string `json:"bind_mount_dir"`
+	LogDir       string `json:"log_dir"`
+}
+
 var (
-	action          string
-	handle          string
-	networkSpec     string
-	cniPluginDir    string
-	cniConfigDir    string
-	nsBindMountRoot string
-	logDir          string
+	action      string
+	handle      string
+	networkSpec string
+	config      Config
 )
 
 func setupLogging(logDir, handle string) error {
@@ -42,16 +46,44 @@ func setupLogging(logDir, handle string) error {
 	return nil
 }
 
+func parseConfig(configFilePath string) error {
+	configBytes, err := ioutil.ReadFile(configFilePath)
+	if err != nil {
+		return fmt.Errorf("reading config file: %s", err)
+	}
+
+	err = json.Unmarshal(configBytes, &config)
+	if err != nil {
+		return fmt.Errorf("parsing config (%s): %s", configFilePath, err)
+	}
+
+	if config.LogDir == "" {
+		return fmt.Errorf("missing required config 'log_dir'")
+	}
+
+	if config.CniPluginDir == "" {
+		return fmt.Errorf("missing required config 'cni_plugin_dir'")
+	}
+
+	if config.CniConfigDir == "" {
+		return fmt.Errorf("missing required config 'cni_config_dir'")
+	}
+
+	if config.BindMountDir == "" {
+		return fmt.Errorf("missing required config 'bind_mount_dir'")
+	}
+
+	return nil
+}
+
 func parseArgs(allArgs []string) error {
 	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
 
 	flagSet.StringVar(&action, "action", "", "")
 	flagSet.StringVar(&handle, "handle", "", "")
 	flagSet.StringVar(&networkSpec, "network", "", "")
-	flagSet.StringVar(&cniPluginDir, "cniPluginDir", "", "")
-	flagSet.StringVar(&cniConfigDir, "cniConfigDir", "", "")
-	flagSet.StringVar(&nsBindMountRoot, "nsBindMountRoot", "", "")
-	flagSet.StringVar(&logDir, "logDir", "", "")
+	var configFilePath string
+	flagSet.StringVar(&configFilePath, "configFile", "", "")
 
 	err := flagSet.Parse(allArgs[1:])
 	if err != nil {
@@ -65,22 +97,22 @@ func parseArgs(allArgs []string) error {
 		return fmt.Errorf("missing required flag 'handle'")
 	}
 
-	if err := setupLogging(logDir, handle); err != nil {
-		return fmt.Errorf("failed setting up logging: %s", err)
+	if configFilePath == "" {
+		return fmt.Errorf("missing required flag 'configFile'")
+	}
+
+	if err = parseConfig(configFilePath); err != nil {
+		return err
+	}
+
+	if err = setupLogging(config.LogDir, handle); err != nil {
+		return err
 	}
 
 	if action == "" {
 		return fmt.Errorf("missing required flag 'action'")
 	}
-	if cniPluginDir == "" {
-		return fmt.Errorf("missing required flag 'cniPluginDir'")
-	}
-	if cniConfigDir == "" {
-		return fmt.Errorf("missing required flag 'cniConfigDir'")
-	}
-	if nsBindMountRoot == "" {
-		return fmt.Errorf("missing required flag 'nsBindMountRoot'")
-	}
+
 	if action == "up" && networkSpec == "" {
 		return fmt.Errorf("missing required flag 'network'")
 	}
@@ -112,8 +144,8 @@ func main() {
 	}
 
 	cniController := &controller.CNIController{
-		PluginDir: cniPluginDir,
-		ConfigDir: cniConfigDir,
+		PluginDir: config.CniPluginDir,
+		ConfigDir: config.CniConfigDir,
 	}
 
 	mounter := &controller.Mounter{}
@@ -121,7 +153,7 @@ func main() {
 	manager := &controller.Manager{
 		CNIController: cniController,
 		Mounter:       mounter,
-		BindMountRoot: nsBindMountRoot,
+		BindMountRoot: config.BindMountDir,
 	}
 
 	switch action {

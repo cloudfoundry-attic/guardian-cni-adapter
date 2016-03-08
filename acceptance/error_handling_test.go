@@ -1,6 +1,7 @@
 package acceptance_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -22,7 +23,16 @@ var _ = Describe("Guardian CNI adapter", func() {
 		fakePid            int
 		fakeLogDir         string
 		adapterLogFilePath string
+		fakeConfigFilePath string
+		defaultConfig      map[string]string
 	)
+
+	var writeConfig = func(configHash map[string]string) {
+		configBytes, err := json.Marshal(configHash)
+		Expect(err).NotTo(HaveOccurred())
+		err = ioutil.WriteFile(fakeConfigFilePath, configBytes, 0600)
+		Expect(err).NotTo(HaveOccurred())
+	}
 
 	BeforeEach(func() {
 		var err error
@@ -32,15 +42,25 @@ var _ = Describe("Guardian CNI adapter", func() {
 
 		adapterLogFilePath = filepath.Join(adapterLogDir, "some-container-handle.log")
 
+		configFile, err := ioutil.TempFile("", "adapter-config-")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(configFile.Close()).To(Succeed())
+
+		fakeConfigFilePath = configFile.Name()
+		defaultConfig = map[string]string{
+			"cni_plugin_dir": "/some/cni/plugin/dir",
+			"cni_config_dir": "/some/cni/config/dir",
+			"bind_mount_dir": "/some/bind/mount/dir",
+			"log_dir":        adapterLogDir,
+		}
+		writeConfig(defaultConfig)
+
 		command = exec.Command(pathToAdapter)
 		command.Args = []string{pathToAdapter,
 			"--action=up",
 			"--handle=some-container-handle",
 			"--network=some-network-spec",
-			"--cniPluginDir=" + "some/cni/plugin/dir",
-			"--cniConfigDir=" + "some/cni/config/dir",
-			"--nsBindMountRoot=" + "/some/bind/mount/root/path",
-			"--logDir=" + adapterLogDir,
+			"--configFile=" + fakeConfigFilePath,
 		}
 
 		fakePid = rand.Intn(30000)
@@ -182,16 +202,35 @@ var _ = Describe("Guardian CNI adapter", func() {
 				Expect(session.Err.Contents()).To(ContainSubstring(expectedErrorString))
 
 				By("checking that the error was logged to a file")
-				if missingFlag != "handle" {
+				if missingFlag != "handle" && missingFlag != "configFile" {
 					Expect(ioutil.ReadFile(adapterLogFilePath)).To(ContainSubstring(expectedErrorString))
 				}
 			},
 			Entry("action", "action"),
 			Entry("handle", "handle"),
 			Entry("network", "network"),
-			Entry("cniPluginDir", "cniPluginDir"),
-			Entry("cniConfigDir", "cniConfigDir"),
-			Entry("nsBindMountRoot", "nsBindMountRoot"),
+			Entry("configFile", "configFile"),
+		)
+
+		DescribeTable("missing required config",
+			func(missingKey string) {
+				delete(defaultConfig, missingKey)
+				writeConfig(defaultConfig)
+
+				session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("checking that process exits with an err")
+				Eventually(session).Should(gexec.Exit(1))
+
+				By("checking that the error was logged to stderr")
+				Expect(session.Out.Contents()).To(BeEmpty())
+				expectedErrorString := fmt.Sprintf("missing required config '%s'", missingKey)
+				Expect(session.Err.Contents()).To(ContainSubstring(expectedErrorString))
+			},
+			Entry("cni_plugin_dir", "cni_plugin_dir"),
+			Entry("cni_config_dir", "cni_config_dir"),
+			Entry("bind_mount_dir", "bind_mount_dir"),
 		)
 
 		Context("when the user doesn't know what to do", func() {
