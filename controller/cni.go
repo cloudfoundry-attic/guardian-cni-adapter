@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -53,6 +54,24 @@ func (c *CNIController) ensureInitialized() error {
 	return nil
 }
 
+func appendNetworkSpec(existingNetConfig *libcni.NetworkConfig, gardenNetworkSpec string) (*libcni.NetworkConfig, error) {
+	config := make(map[string]interface{})
+	err := json.Unmarshal(existingNetConfig.Bytes, &config)
+	if err != nil {
+		return nil, err
+	}
+	config["network_id"] = gardenNetworkSpec
+	newBytes, err := json.Marshal(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &libcni.NetworkConfig{
+		Network: existingNetConfig.Network,
+		Bytes:   newBytes,
+	}, nil
+}
+
 func (c *CNIController) Up(namespacePath, handle, spec string) error {
 	err := c.ensureInitialized()
 	if err != nil {
@@ -65,7 +84,11 @@ func (c *CNIController) Up(namespacePath, handle, spec string) error {
 			NetNS:       namespacePath,
 			IfName:      fmt.Sprintf("eth%d", i),
 		}
-		_, err = c.cniConfig.AddNetwork(networkConfig, runtimeConfig)
+		enhancedNetConfig, err := appendNetworkSpec(networkConfig, spec)
+		if err != nil {
+			return fmt.Errorf("adding garden network spec to CNI config: %s", err)
+		}
+		_, err = c.cniConfig.AddNetwork(enhancedNetConfig, runtimeConfig)
 		if err != nil {
 			return fmt.Errorf("add network failed: %s", err)
 		}

@@ -29,6 +29,16 @@ func getConfig(index int) string {
 }`, index, index)
 }
 
+func expectedStdin(index int, networkID string) string {
+	return fmt.Sprintf(`
+{
+  "cniVersion": "0.1.0",
+  "name": "some-net-%d",
+  "type": "plugin-%d",
+	"network_id": %q
+}`, index, index, networkID)
+}
+
 func writeConfig(index int, outDir string) error {
 	config := getConfig(index)
 	outpath := filepath.Join(outDir, fmt.Sprintf("%d-plugin-%d.conf", 10*index, index))
@@ -137,7 +147,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 				var pluginCallInfo fakePluginLogData
 				Expect(json.Unmarshal(logFileContents, &pluginCallInfo)).To(Succeed())
 
-				Expect(pluginCallInfo.Stdin).To(MatchJSON(getConfig(i)))
+				Expect(pluginCallInfo.Stdin).To(MatchJSON(expectedStdin(i, "some-network-spec")))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_COMMAND", "ADD"))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_CONTAINERID", containerHandle))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
