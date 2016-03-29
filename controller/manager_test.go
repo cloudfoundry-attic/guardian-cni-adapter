@@ -52,9 +52,18 @@ var _ = Describe("Manager", func() {
 
 				err = manager.Up(42, "", "some-network-spec")
 				Expect(err).To(MatchError("up missing container handle"))
+			})
+		})
 
-				err = manager.Up(42, "some-container-handle", "")
-				Expect(err).To(MatchError("up missing network spec"))
+		Context("when missing the network spec", func() {
+			It("should succeed", func() {
+				err := manager.Up(42, "some-container-handle", "")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cniController.UpCallCount()).To(Equal(1))
+				namespacePath, handle, spec := cniController.UpArgsForCall(0)
+				Expect(namespacePath).To(Equal("/some/fake/path/some-container-handle"))
+				Expect(handle).To(Equal("some-container-handle"))
+				Expect(spec).To(BeEmpty())
 			})
 		})
 

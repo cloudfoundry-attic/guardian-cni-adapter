@@ -208,7 +208,6 @@ var _ = Describe("Guardian CNI adapter", func() {
 			},
 			Entry("action", "action"),
 			Entry("handle", "handle"),
-			Entry("network", "network"),
 			Entry("configFile", "configFile"),
 		)
 

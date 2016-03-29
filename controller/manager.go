@@ -31,9 +31,6 @@ func (m *Manager) Up(pid int, containerHandle, networkSpec string) error {
 	if containerHandle == "" {
 		return errors.New("up missing container handle")
 	}
-	if networkSpec == "" {
-		return errors.New("up missing network spec")
-	}
 
 	procNsPath := fmt.Sprintf("/proc/%d/ns/net", pid)
 	bindMountPath := filepath.Join(m.BindMountRoot, containerHandle)

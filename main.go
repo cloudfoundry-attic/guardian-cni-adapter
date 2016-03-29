@@ -113,10 +113,6 @@ func parseArgs(allArgs []string) error {
 		return fmt.Errorf("missing required flag 'action'")
 	}
 
-	if action == "up" && networkSpec == "" {
-		return fmt.Errorf("missing required flag 'network'")
-	}
-
 	return nil
 }
 
