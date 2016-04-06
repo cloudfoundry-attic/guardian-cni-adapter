@@ -54,16 +54,27 @@ func (c *CNIController) ensureInitialized() error {
 	return nil
 }
 
-func appendNetworkSpec(existingNetConfig *libcni.NetworkConfig, gardenNetworkSpec string) (*libcni.NetworkConfig, error) {
+func AppendNetworkSpec(existingNetConfig *libcni.NetworkConfig, gardenNetworkSpec string) (*libcni.NetworkConfig, error) {
 	config := make(map[string]interface{})
 	err := json.Unmarshal(existingNetConfig.Bytes, &config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unmarshal existing network bytes: %s", err)
 	}
-	config["network_id"] = gardenNetworkSpec
+
+	if string(gardenNetworkSpec) == "" {
+		config["network"] = ""
+	} else {
+		networkPayloadMap := make(map[string]interface{})
+		err = json.Unmarshal([]byte(gardenNetworkSpec), &networkPayloadMap)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshal garden network spec: %s", err)
+		}
+		config["network"] = networkPayloadMap
+	}
+
 	newBytes, err := json.Marshal(config)
 	if err != nil {
-		return nil, err
+		return nil, err //Not tested
 	}
 
 	return &libcni.NetworkConfig{
@@ -84,7 +95,7 @@ func (c *CNIController) Up(namespacePath, handle, spec string) error {
 			NetNS:       namespacePath,
 			IfName:      fmt.Sprintf("eth%d", i),
 		}
-		enhancedNetConfig, err := appendNetworkSpec(networkConfig, spec)
+		enhancedNetConfig, err := AppendNetworkSpec(networkConfig, spec)
 		if err != nil {
 			return fmt.Errorf("adding garden network spec to CNI config: %s", err)
 		}

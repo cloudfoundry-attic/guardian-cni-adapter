@@ -29,14 +29,26 @@ func getConfig(index int) string {
 }`, index, index)
 }
 
-func expectedStdin(index int, networkID string) string {
+func expectedStdin(index int) string {
 	return fmt.Sprintf(`
 {
   "cniVersion": "0.1.0",
   "name": "some-net-%d",
   "type": "plugin-%d",
-	"network_id": %q
-}`, index, index, networkID)
+	"network": {
+		"network_id": "some-network-id"
+	}
+}`, index, index)
+}
+
+func expectedStdinNoNetwork(index int) string {
+	return fmt.Sprintf(`
+{
+  "cniVersion": "0.1.0",
+  "name": "some-net-%d",
+  "type": "plugin-%d",
+	"network": ""
+}`, index, index)
 }
 
 func writeConfig(index int, outDir string) error {
@@ -145,7 +157,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 					var pluginCallInfo fakePluginLogData
 					Expect(json.Unmarshal(logFileContents, &pluginCallInfo)).To(Succeed())
 
-					Expect(pluginCallInfo.Stdin).To(MatchJSON(expectedStdin(i, "")))
+					Expect(pluginCallInfo.Stdin).To(MatchJSON(expectedStdinNoNetwork(i)))
 					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_COMMAND", "ADD"))
 					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_CONTAINERID", containerHandle))
 					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
@@ -201,7 +213,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 				"--configFile", fakeConfigFilePath,
 				"--action", "up",
 				"--handle", "some-container-handle",
-				"--network", "some-network-spec",
+				"--network", `{"network_id": "some-network-id"}`,
 			}
 
 			upSession, err := gexec.Start(upCommand, GinkgoWriter, GinkgoWriter)
@@ -215,7 +227,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 				var pluginCallInfo fakePluginLogData
 				Expect(json.Unmarshal(logFileContents, &pluginCallInfo)).To(Succeed())
 
-				Expect(pluginCallInfo.Stdin).To(MatchJSON(expectedStdin(i, "some-network-spec")))
+				Expect(pluginCallInfo.Stdin).To(MatchJSON(expectedStdin(i)))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_COMMAND", "ADD"))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_CONTAINERID", containerHandle))
 				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
