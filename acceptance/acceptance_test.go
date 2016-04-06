@@ -166,6 +166,14 @@ var _ = Describe("Guardian CNI adapter", func() {
 					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
 				}
 
+				By("logging the plugin output / result from up")
+				logContents, err := ioutil.ReadFile(adapterLogFilePath)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(logContents).To(ContainSubstring("up result for name=some-net-0, type=plugin-0: "))
+				Expect(logContents).To(ContainSubstring("up result for name=some-net-1, type=plugin-1: "))
+				Expect(logContents).To(ContainSubstring("up result for name=some-net-2, type=plugin-2: "))
+				Expect(logContents).To(ContainSubstring("169.254.1.2"))
+
 				By("checking that the fake process's network namespace has been bind-mounted into the filesystem")
 				Expect(sameFile(expectedNetNSPath, fmt.Sprintf("/proc/%d/ns/net", fakePid))).To(BeTrue())
 
@@ -198,6 +206,13 @@ var _ = Describe("Guardian CNI adapter", func() {
 					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_NETNS", expectedNetNSPath))
 					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
 				}
+
+				By("logging the plugin output / result from down")
+				logContents, err = ioutil.ReadFile(adapterLogFilePath)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(logContents).To(ContainSubstring("down complete for name=some-net-0, type=plugin-0"))
+				Expect(logContents).To(ContainSubstring("down complete for name=some-net-1, type=plugin-1"))
+				Expect(logContents).To(ContainSubstring("down complete for name=some-net-2, type=plugin-2"))
 
 				By("checking that the bind-mounted namespace has been removed")
 				Expect(expectedNetNSPath).NotTo(BeAnExistingFile())

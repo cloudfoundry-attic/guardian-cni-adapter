@@ -99,10 +99,11 @@ func (c *CNIController) Up(namespacePath, handle, spec string) error {
 		if err != nil {
 			return fmt.Errorf("adding garden network spec to CNI config: %s", err)
 		}
-		_, err = c.cniConfig.AddNetwork(enhancedNetConfig, runtimeConfig)
+		result, err := c.cniConfig.AddNetwork(enhancedNetConfig, runtimeConfig)
 		if err != nil {
 			return fmt.Errorf("add network failed: %s", err)
 		}
+		log.Printf("up result for name=%s, type=%s: \n%s\n", networkConfig.Network.Name, networkConfig.Network.Type, result.String())
 	}
 
 	return nil
@@ -124,6 +125,7 @@ func (c *CNIController) Down(namespacePath, handle string) error {
 		if err != nil {
 			return fmt.Errorf("del network failed: %s", err)
 		}
+		log.Printf("down complete for name=%s, type=%s\n", networkConfig.Network.Name, networkConfig.Network.Type)
 	}
 
 	return nil
