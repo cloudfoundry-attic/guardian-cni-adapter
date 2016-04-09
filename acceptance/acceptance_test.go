@@ -36,7 +36,8 @@ func expectedStdin(index int) string {
   "name": "some-net-%d",
   "type": "plugin-%d",
 	"network": {
-		"network_id": "some-network-id"
+		"network_id": "some-network-id",
+		"app": "some-app-guid"
 	}
 }`, index, index)
 }
@@ -228,7 +229,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 				"--configFile", fakeConfigFilePath,
 				"--action", "up",
 				"--handle", "some-container-handle",
-				"--network", `{"network_id": "some-network-id"}`,
+				"--network", `{"network_id": "some-network-id", "app": "some-app-guid"}`,
 			}
 
 			upSession, err := gexec.Start(upCommand, GinkgoWriter, GinkgoWriter)
