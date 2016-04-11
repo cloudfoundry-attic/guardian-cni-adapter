@@ -71,4 +71,18 @@ var _ = Describe("CNI", func() {
 			})
 		})
 	})
+
+	Describe("CNIController", func() {
+		var cniController *controller.CNIController
+
+		BeforeEach(func() {
+			cniController = &controller.CNIController{
+				NetworkConfigs: []libcni.NetworkConfig{
+			libcni.NetworkConfig{
+				Network: nil,
+				Bytes:   []byte(`{"something": "some-value"}`),
+			}
+			}
+		})
+	})
 })

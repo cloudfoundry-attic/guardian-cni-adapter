@@ -16,17 +16,17 @@ type CNIController struct {
 	PluginDir string
 	ConfigDir string
 
-	cniConfig      *libcni.CNIConfig
-	networkConfigs []*libcni.NetworkConfig
+	CNIConfig      *libcni.CNIConfig
+	NetworkConfigs []*libcni.NetworkConfig
 }
 
 func (c *CNIController) ensureInitialized() error {
-	if c.cniConfig == nil {
-		c.cniConfig = &libcni.CNIConfig{Path: []string{c.PluginDir}}
+	if c.CNIConfig == nil {
+		c.CNIConfig = &libcni.CNIConfig{Path: []string{c.PluginDir}}
 	}
 
-	if c.networkConfigs == nil {
-		c.networkConfigs = []*libcni.NetworkConfig{}
+	if c.NetworkConfigs == nil {
+		c.NetworkConfigs = []*libcni.NetworkConfig{}
 
 		err := filepath.Walk(c.ConfigDir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -43,7 +43,7 @@ func (c *CNIController) ensureInitialized() error {
 			if err != nil {
 				return fmt.Errorf("unable to load config from %s: %s", path, err)
 			}
-			c.networkConfigs = append(c.networkConfigs, conf)
+			c.NetworkConfigs = append(c.NetworkConfigs, conf)
 			log.Printf("loaded config %+v\n%s\n", conf.Network, string(conf.Bytes))
 			return nil
 		})
@@ -98,20 +98,23 @@ func (c *CNIController) Up(namespacePath, handle, spec string) error {
 		return fmt.Errorf("failed to initialize controller: %s", err)
 	}
 
-	for i, networkConfig := range c.networkConfigs {
+	for i, networkConfig := range c.NetworkConfigs {
 		runtimeConfig := &libcni.RuntimeConf{
 			ContainerID: handle,
 			NetNS:       namespacePath,
 			IfName:      fmt.Sprintf("eth%d", i),
 		}
+
 		enhancedNetConfig, err := AppendNetworkSpec(networkConfig, spec)
 		if err != nil {
 			return fmt.Errorf("adding garden network spec to CNI config: %s", err)
 		}
-		result, err := c.cniConfig.AddNetwork(enhancedNetConfig, runtimeConfig)
+
+		result, err := c.CNIConfig.AddNetwork(enhancedNetConfig, runtimeConfig)
 		if err != nil {
 			return fmt.Errorf("add network failed: %s", err)
 		}
+
 		log.Printf("up result for name=%s, type=%s: \n%s\n", networkConfig.Network.Name, networkConfig.Network.Type, result.String())
 	}
 
@@ -124,13 +127,13 @@ func (c *CNIController) Down(namespacePath, handle string) error {
 		return fmt.Errorf("failed to initialize controller: %s", err)
 	}
 
-	for i, networkConfig := range c.networkConfigs {
+	for i, networkConfig := range c.NetworkConfigs {
 		runtimeConfig := &libcni.RuntimeConf{
 			ContainerID: handle,
 			NetNS:       namespacePath,
 			IfName:      fmt.Sprintf("eth%d", i),
 		}
-		err = c.cniConfig.DelNetwork(networkConfig, runtimeConfig)
+		err = c.CNIConfig.DelNetwork(networkConfig, runtimeConfig)
 		if err != nil {
 			return fmt.Errorf("del network failed: %s", err)
 		}
