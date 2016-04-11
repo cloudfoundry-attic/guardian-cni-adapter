@@ -8,7 +8,6 @@ import (
 )
 
 var _ = Describe("CNI", func() {
-
 	Describe("AppendNetworkSpec", func() {
 		var (
 			networkSpec    string
@@ -31,11 +30,29 @@ var _ = Describe("CNI", func() {
 		})
 
 		Context("when the network spec is empty", func() {
-			It("should return an empty network field", func() {
+			It("should omit the network field", func() {
 				newNetworkSpec, err := controller.AppendNetworkSpec(existingConfig, "")
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(newNetworkSpec.Bytes).To(MatchJSON([]byte(`{"something":"some-value","network":""}`)))
+				Expect(newNetworkSpec.Bytes).To(MatchJSON([]byte(`{"something":"some-value"}`)))
+			})
+		})
+
+		Context("when the network spec is a CIDR", func() {
+			It("should omit the network field", func() {
+				newNetworkSpec, err := controller.AppendNetworkSpec(existingConfig, "1.2.3.4/32")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(newNetworkSpec.Bytes).To(MatchJSON([]byte(`{"something":"some-value"}`)))
+			})
+		})
+
+		Context("when the network spec is an IP", func() {
+			It("should omit the network field", func() {
+				newNetworkSpec, err := controller.AppendNetworkSpec(existingConfig, "1.2.3.4")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(newNetworkSpec.Bytes).To(MatchJSON([]byte(`{"something":"some-value"}`)))
 			})
 		})
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,6 +55,16 @@ func (c *CNIController) ensureInitialized() error {
 	return nil
 }
 
+func isCIDR(spec string) bool {
+	_, _, err := net.ParseCIDR(spec)
+	return err == nil
+}
+
+func isIP(spec string) bool {
+	ip := net.ParseIP(spec)
+	return ip != nil
+}
+
 func AppendNetworkSpec(existingNetConfig *libcni.NetworkConfig, gardenNetworkSpec string) (*libcni.NetworkConfig, error) {
 	config := make(map[string]interface{})
 	err := json.Unmarshal(existingNetConfig.Bytes, &config)
@@ -61,9 +72,7 @@ func AppendNetworkSpec(existingNetConfig *libcni.NetworkConfig, gardenNetworkSpe
 		return nil, fmt.Errorf("unmarshal existing network bytes: %s", err)
 	}
 
-	if string(gardenNetworkSpec) == "" {
-		config["network"] = ""
-	} else {
+	if gardenNetworkSpec != "" && !isCIDR(gardenNetworkSpec) && !isIP(gardenNetworkSpec) {
 		networkPayloadMap := make(map[string]interface{})
 		err = json.Unmarshal([]byte(gardenNetworkSpec), &networkPayloadMap)
 		if err != nil {
