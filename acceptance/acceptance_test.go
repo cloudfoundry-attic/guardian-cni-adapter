@@ -153,6 +153,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 				"--configFile", fakeConfigFilePath,
 				"--action", "up",
 				"--handle", "some-container-handle",
+				"--network", "garden-network-spec",
 			}
 
 			downCommand = exec.Command(pathToAdapter)
@@ -163,6 +164,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 				"--action", "down",
 				"--handle", "some-container-handle",
 				"--configFile", fakeConfigFilePath,
+				"--network", "garden-network-spec",
 			}
 		})
 
@@ -170,12 +172,12 @@ var _ = Describe("Guardian CNI adapter", func() {
 			BeforeEach(func() {
 				upCommand.Args = append(
 					upCommand.Args,
-					"--network", `{"network_id": "some-network-id", "app": "some-app-guid"}`,
+					"--external-network", `{"network_id": "some-network-id", "app": "some-app-guid"}`,
 				)
 
 				downCommand.Args = append(
 					downCommand.Args,
-					"--network", `{"network_id": "some-network-id", "app": "some-app-guid"}`,
+					"--external-network", `{"network_id": "some-network-id", "app": "some-app-guid"}`,
 				)
 			})
 

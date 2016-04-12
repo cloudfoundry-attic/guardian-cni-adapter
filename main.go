@@ -77,12 +77,14 @@ func parseConfig(configFilePath string) error {
 }
 
 func parseArgs(allArgs []string) error {
+	var gardenNetworkSpec, configFilePath string
+
 	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
 
 	flagSet.StringVar(&action, "action", "", "")
 	flagSet.StringVar(&handle, "handle", "", "")
-	flagSet.StringVar(&networkSpec, "network", "", "")
-	var configFilePath string
+	flagSet.StringVar(&gardenNetworkSpec, "network", "", "")
+	flagSet.StringVar(&networkSpec, "external-network", "", "")
 	flagSet.StringVar(&configFilePath, "configFile", "", "")
 
 	err := flagSet.Parse(allArgs[1:])
