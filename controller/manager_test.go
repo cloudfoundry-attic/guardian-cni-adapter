@@ -88,23 +88,24 @@ var _ = Describe("Manager", func() {
 
 	Describe("Down", func() {
 		It("should ensure that the netNS is unmounted", func() {
-			Expect(manager.Down("some-container-handle")).To(Succeed())
+			Expect(manager.Down("some-container-handle", "some-network-spec")).To(Succeed())
 			Expect(mounter.RemoveMountCallCount()).To(Equal(1))
 
 			Expect(mounter.RemoveMountArgsForCall(0)).To(Equal("/some/fake/path/some-container-handle"))
 		})
 
 		It("should call CNI Down, passing in the bind-mounted path to the net ns", func() {
-			Expect(manager.Down("some-container-handle")).To(Succeed())
+			Expect(manager.Down("some-container-handle", "some-network-spec")).To(Succeed())
 			Expect(cniController.DownCallCount()).To(Equal(1))
-			namespacePath, handle := cniController.DownArgsForCall(0)
+			namespacePath, handle, spec := cniController.DownArgsForCall(0)
 			Expect(namespacePath).To(Equal("/some/fake/path/some-container-handle"))
 			Expect(handle).To(Equal("some-container-handle"))
+			Expect(spec).To(Equal("some-network-spec"))
 		})
 
 		Context("when missing args", func() {
 			It("should return a friendly error", func() {
-				err := manager.Down("")
+				err := manager.Down("", "")
 				Expect(err).To(MatchError("down missing container handle"))
 			})
 		})
@@ -113,7 +114,7 @@ var _ = Describe("Manager", func() {
 			Context("when the mounter fails", func() {
 				It("should return the error", func() {
 					mounter.RemoveMountReturns(errors.New("boom"))
-					err := manager.Down("some-container-handle")
+					err := manager.Down("some-container-handle", "some-network-spec")
 					Expect(err).To(MatchError("failed removing mount /some/fake/path/some-container-handle: boom"))
 				})
 			})
@@ -121,7 +122,7 @@ var _ = Describe("Manager", func() {
 			Context("when the cni Down fails", func() {
 				It("should return the error", func() {
 					cniController.DownReturns(errors.New("bang"))
-					err := manager.Down("some-container-handle")
+					err := manager.Down("some-container-handle", "some-network-spec")
 					Expect(err).To(MatchError("cni down failed: bang"))
 				})
 			})

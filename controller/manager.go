@@ -9,7 +9,7 @@ import (
 //go:generate counterfeiter -o ../fakes/cniController.go --fake-name CNIController . cniController
 type cniController interface {
 	Up(namespacePath, handle, spec string) error
-	Down(namespacePath, handle string) error
+	Down(namespacePath, handle, spec string) error
 }
 
 //go:generate counterfeiter -o ../fakes/mounter.go --fake-name Mounter . mounter
@@ -48,14 +48,14 @@ func (m *Manager) Up(pid int, containerHandle, networkSpec string) error {
 	return nil
 }
 
-func (m *Manager) Down(containerHandle string) error {
+func (m *Manager) Down(containerHandle string, networkSpec string) error {
 	if containerHandle == "" {
 		return errors.New("down missing container handle")
 	}
 
 	bindMountPath := filepath.Join(m.BindMountRoot, containerHandle)
 
-	err := m.CNIController.Down(bindMountPath, containerHandle)
+	err := m.CNIController.Down(bindMountPath, containerHandle, networkSpec)
 	if err != nil {
 		return fmt.Errorf("cni down failed: %s", err)
 	}

@@ -86,6 +86,12 @@ func AppendNetworkSpec(existingNetConfig *libcni.NetworkConfig, gardenNetworkSpe
 		return nil, err //Not tested
 	}
 
+	if skipValue, ok := config["skip_without_network"]; ok && config["network"] == nil {
+		if value, ok := skipValue.(bool); value && ok {
+			return nil, nil
+		}
+	}
+
 	return &libcni.NetworkConfig{
 		Network: existingNetConfig.Network,
 		Bytes:   newBytes,
@@ -104,21 +110,26 @@ func (c *CNIController) Up(namespacePath, handle, spec string) error {
 			NetNS:       namespacePath,
 			IfName:      fmt.Sprintf("eth%d", i),
 		}
+
 		enhancedNetConfig, err := AppendNetworkSpec(networkConfig, spec)
 		if err != nil {
 			return fmt.Errorf("adding garden network spec to CNI config: %s", err)
 		}
-		result, err := c.cniConfig.AddNetwork(enhancedNetConfig, runtimeConfig)
-		if err != nil {
-			return fmt.Errorf("add network failed: %s", err)
+
+		if enhancedNetConfig != nil {
+			result, err := c.cniConfig.AddNetwork(enhancedNetConfig, runtimeConfig)
+			if err != nil {
+				return fmt.Errorf("add network failed: %s", err)
+			}
+
+			log.Printf("up result for name=%s, type=%s: \n%s\n", networkConfig.Network.Name, networkConfig.Network.Type, result.String())
 		}
-		log.Printf("up result for name=%s, type=%s: \n%s\n", networkConfig.Network.Name, networkConfig.Network.Type, result.String())
 	}
 
 	return nil
 }
 
-func (c *CNIController) Down(namespacePath, handle string) error {
+func (c *CNIController) Down(namespacePath, handle, spec string) error {
 	err := c.ensureInitialized()
 	if err != nil {
 		return fmt.Errorf("failed to initialize controller: %s", err)
@@ -130,11 +141,20 @@ func (c *CNIController) Down(namespacePath, handle string) error {
 			NetNS:       namespacePath,
 			IfName:      fmt.Sprintf("eth%d", i),
 		}
-		err = c.cniConfig.DelNetwork(networkConfig, runtimeConfig)
+
+		enhancedNetConfig, err := AppendNetworkSpec(networkConfig, spec)
 		if err != nil {
-			return fmt.Errorf("del network failed: %s", err)
+			return fmt.Errorf("adding garden network spec to CNI config: %s", err)
 		}
-		log.Printf("down complete for name=%s, type=%s\n", networkConfig.Network.Name, networkConfig.Network.Type)
+
+		if enhancedNetConfig != nil {
+			err = c.cniConfig.DelNetwork(networkConfig, runtimeConfig)
+			if err != nil {
+				return fmt.Errorf("del network failed: %s", err)
+			}
+
+			log.Printf("down complete for name=%s, type=%s\n", networkConfig.Network.Name, networkConfig.Network.Type)
+		}
 	}
 
 	return nil

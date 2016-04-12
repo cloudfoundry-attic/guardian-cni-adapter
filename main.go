@@ -159,7 +159,7 @@ func main() {
 			log.Fatalf("up failed: %s", err)
 		}
 	case "down":
-		err = manager.Down(handle)
+		err = manager.Down(handle, networkSpec)
 		if err != nil {
 			log.Fatalf("down failed: %s", err)
 		}

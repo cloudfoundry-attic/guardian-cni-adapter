@@ -39,7 +39,7 @@ var _ = BeforeSuite(func() {
 	cniPluginDir, err = ioutil.TempDir("", "cni-plugin-")
 	Expect(err).NotTo(HaveOccurred())
 
-	cniPluginNames = []string{"plugin-0", "plugin-1", "plugin-2"}
+	cniPluginNames = []string{"plugin-0", "plugin-1", "plugin-2", "plugin-3"}
 	for _, name := range cniPluginNames {
 		os.Link(pathToFakeCNIPlugin, filepath.Join(cniPluginDir, name))
 	}

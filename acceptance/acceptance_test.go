@@ -29,6 +29,16 @@ func getConfig(index int) string {
 }`, index, index)
 }
 
+func getSkipConfig(index int) string {
+	return fmt.Sprintf(`
+{
+  "cniVersion": "0.1.0",
+  "name": "some-net-%d",
+  "type": "plugin-%d",
+  "skip_without_network": true
+}`, index, index)
+}
+
 func expectedStdin(index int) string {
 	return fmt.Sprintf(`
 {
@@ -48,6 +58,12 @@ func writeConfig(index int, outDir string) error {
 	return ioutil.WriteFile(outpath, []byte(config), 0600)
 }
 
+func writeSkipConfig(index int, outDir string) error {
+	config := getSkipConfig(index)
+	outpath := filepath.Join(outDir, fmt.Sprintf("%d-plugin-%d.conf", 10*index, index))
+	return ioutil.WriteFile(outpath, []byte(config), 0600)
+}
+
 func sameFile(path1, path2 string) bool {
 	fi1, err := os.Stat(path1)
 	Expect(err).NotTo(HaveOccurred())
@@ -57,7 +73,7 @@ func sameFile(path1, path2 string) bool {
 	return os.SameFile(fi1, fi2)
 }
 
-const DEFAULT_TIMEOUT = "5s"
+const DEFAULT_TIMEOUT = "10s"
 
 var _ = Describe("Guardian CNI adapter", func() {
 	var (
@@ -126,17 +142,45 @@ var _ = Describe("Guardian CNI adapter", func() {
 	})
 
 	Describe("CNI plugin lifecycle events", func() {
-		Context("when the network is not specified", func() {
-			It("should still call the CNI plugins", func() {
-				upCommand := exec.Command(pathToAdapter)
-				upCommand.Env = []string{"FAKE_LOG_DIR=" + fakeLogDir}
-				upCommand.Stdin = strings.NewReader(fmt.Sprintf(`{ "pid": %d }`, fakePid))
-				upCommand.Args = []string{pathToAdapter,
-					"--configFile", fakeConfigFilePath,
-					"--action", "up",
-					"--handle", "some-container-handle",
-				}
+		var upCommand, downCommand *exec.Cmd
 
+		BeforeEach(func() {
+			upCommand = exec.Command(pathToAdapter)
+			upCommand.Env = []string{"FAKE_LOG_DIR=" + fakeLogDir}
+			upCommand.Stdin = strings.NewReader(fmt.Sprintf(`{ "pid": %d }`, fakePid))
+			upCommand.Args = []string{
+				pathToAdapter,
+				"--configFile", fakeConfigFilePath,
+				"--action", "up",
+				"--handle", "some-container-handle",
+			}
+
+			downCommand = exec.Command(pathToAdapter)
+			downCommand.Env = []string{"FAKE_LOG_DIR=" + fakeLogDir}
+			downCommand.Stdin = strings.NewReader(`{}`)
+			downCommand.Args = []string{
+				pathToAdapter,
+				"--action", "down",
+				"--handle", "some-container-handle",
+				"--configFile", fakeConfigFilePath,
+			}
+		})
+
+		Context("when the network spec is present", func() {
+			BeforeEach(func() {
+				upCommand.Args = append(
+					upCommand.Args,
+					"--network", `{"network_id": "some-network-id", "app": "some-app-guid"}`,
+				)
+
+				downCommand.Args = append(
+					downCommand.Args,
+					"--network", `{"network_id": "some-network-id", "app": "some-app-guid"}`,
+				)
+			})
+
+			It("should call CNI ADD and DEL", func() {
+				By("calling up")
 				upSession, err := gexec.Start(upCommand, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(upSession, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
@@ -148,7 +192,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 					var pluginCallInfo fakePluginLogData
 					Expect(json.Unmarshal(logFileContents, &pluginCallInfo)).To(Succeed())
 
-					Expect(pluginCallInfo.Stdin).To(MatchJSON(getConfig(i)))
+					Expect(pluginCallInfo.Stdin).To(MatchJSON(expectedStdin(i)))
 					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_COMMAND", "ADD"))
 					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_CONTAINERID", containerHandle))
 					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
@@ -157,27 +201,10 @@ var _ = Describe("Guardian CNI adapter", func() {
 					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
 				}
 
-				By("logging the plugin output / result from up")
-				logContents, err := ioutil.ReadFile(adapterLogFilePath)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(logContents).To(ContainSubstring("up result for name=some-net-0, type=plugin-0: "))
-				Expect(logContents).To(ContainSubstring("up result for name=some-net-1, type=plugin-1: "))
-				Expect(logContents).To(ContainSubstring("up result for name=some-net-2, type=plugin-2: "))
-				Expect(logContents).To(ContainSubstring("169.254.1.2"))
-
 				By("checking that the fake process's network namespace has been bind-mounted into the filesystem")
 				Expect(sameFile(expectedNetNSPath, fmt.Sprintf("/proc/%d/ns/net", fakePid))).To(BeTrue())
 
 				By("calling down")
-				downCommand := exec.Command(pathToAdapter)
-				downCommand.Env = []string{"FAKE_LOG_DIR=" + fakeLogDir}
-				downCommand.Stdin = strings.NewReader(`{}`)
-				downCommand.Args = []string{pathToAdapter,
-					"--action", "down",
-					"--handle", "some-container-handle",
-					"--configFile", fakeConfigFilePath,
-				}
-
 				downSession, err := gexec.Start(downCommand, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(downSession, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
@@ -198,85 +225,88 @@ var _ = Describe("Guardian CNI adapter", func() {
 					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
 				}
 
+				By("checking that the bind-mounted namespace has been removed")
+				Expect(expectedNetNSPath).NotTo(BeAnExistingFile())
+			})
+		})
+
+		Context("when the network spec is missing", func() {
+			BeforeEach(func() {
+				Expect(writeSkipConfig(0, cniConfigDir)).To(Succeed())
+				Expect(writeConfig(1, cniConfigDir)).To(Succeed())
+				Expect(writeConfig(2, cniConfigDir)).To(Succeed())
+				Expect(writeSkipConfig(3, cniConfigDir)).To(Succeed())
+			})
+
+			It("calls CNI plugins without the skip_without_network flag", func() {
+				upSession, err := gexec.Start(upCommand, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(upSession, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
+
+				By("checking plugins with skip_without_network were not called")
+				Expect(filepath.Join(fakeLogDir, "plugin-0.log")).NotTo(BeAnExistingFile())
+				Expect(filepath.Join(fakeLogDir, "plugin-3.log")).NotTo(BeAnExistingFile())
+
+				By("checking that other CNI plugins got called with ADD")
+				for i := 1; i < 3; i++ {
+					logFileContents, err := ioutil.ReadFile(filepath.Join(fakeLogDir, fmt.Sprintf("plugin-%d.log", i)))
+					Expect(err).NotTo(HaveOccurred())
+					var pluginCallInfo fakePluginLogData
+					Expect(json.Unmarshal(logFileContents, &pluginCallInfo)).To(Succeed())
+
+					Expect(pluginCallInfo.Stdin).To(MatchJSON(getConfig(i)))
+					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_COMMAND", "ADD"))
+					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_CONTAINERID", containerHandle))
+					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
+					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_PATH", cniPluginDir))
+					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_NETNS", expectedNetNSPath))
+					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
+				}
+
+				By("logging the plugin output / result from up")
+				logContents, err := ioutil.ReadFile(adapterLogFilePath)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(logContents).To(ContainSubstring("up result for name=some-net-1, type=plugin-1: "))
+				Expect(logContents).To(ContainSubstring("up result for name=some-net-2, type=plugin-2: "))
+				Expect(logContents).To(ContainSubstring("169.254.1.2"))
+
+				By("checking that the fake process's network namespace has been bind-mounted into the filesystem")
+				Expect(sameFile(expectedNetNSPath, fmt.Sprintf("/proc/%d/ns/net", fakePid))).To(BeTrue())
+
+				By("calling down")
+				downSession, err := gexec.Start(downCommand, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(downSession, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
+
+				By("checking plugins with skip_without_network were not called")
+				Expect(filepath.Join(fakeLogDir, "plugin-0.log")).NotTo(BeAnExistingFile())
+				Expect(filepath.Join(fakeLogDir, "plugin-3.log")).NotTo(BeAnExistingFile())
+
+				By("checking that other CNI plugins got called with DEL")
+				for i := 1; i < 3; i++ {
+					logFileContents, err := ioutil.ReadFile(filepath.Join(fakeLogDir, fmt.Sprintf("plugin-%d.log", i)))
+					Expect(err).NotTo(HaveOccurred())
+					var pluginCallInfo fakePluginLogData
+					Expect(json.Unmarshal(logFileContents, &pluginCallInfo)).To(Succeed())
+
+					Expect(pluginCallInfo.Stdin).To(MatchJSON(getConfig(i)))
+					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_COMMAND", "DEL"))
+					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_CONTAINERID", containerHandle))
+					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
+					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_PATH", cniPluginDir))
+					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_NETNS", expectedNetNSPath))
+					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
+				}
+
 				By("logging the plugin output / result from down")
 				logContents, err = ioutil.ReadFile(adapterLogFilePath)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(logContents).To(ContainSubstring("down complete for name=some-net-0, type=plugin-0"))
 				Expect(logContents).To(ContainSubstring("down complete for name=some-net-1, type=plugin-1"))
 				Expect(logContents).To(ContainSubstring("down complete for name=some-net-2, type=plugin-2"))
 
 				By("checking that the bind-mounted namespace has been removed")
 				Expect(expectedNetNSPath).NotTo(BeAnExistingFile())
 			})
-		})
-
-		It("should call CNI ADD and DEL", func() {
-			By("calling up")
-			upCommand := exec.Command(pathToAdapter)
-			upCommand.Env = []string{"FAKE_LOG_DIR=" + fakeLogDir}
-			upCommand.Stdin = strings.NewReader(fmt.Sprintf(`{ "pid": %d }`, fakePid))
-			upCommand.Args = []string{pathToAdapter,
-				"--configFile", fakeConfigFilePath,
-				"--action", "up",
-				"--handle", "some-container-handle",
-				"--network", `{"network_id": "some-network-id", "app": "some-app-guid"}`,
-			}
-
-			upSession, err := gexec.Start(upCommand, GinkgoWriter, GinkgoWriter)
-			Expect(err).NotTo(HaveOccurred())
-			Eventually(upSession, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
-
-			By("checking that every CNI plugin in the plugin directory got called with ADD")
-			for i := 0; i < 3; i++ {
-				logFileContents, err := ioutil.ReadFile(filepath.Join(fakeLogDir, fmt.Sprintf("plugin-%d.log", i)))
-				Expect(err).NotTo(HaveOccurred())
-				var pluginCallInfo fakePluginLogData
-				Expect(json.Unmarshal(logFileContents, &pluginCallInfo)).To(Succeed())
-
-				Expect(pluginCallInfo.Stdin).To(MatchJSON(expectedStdin(i)))
-				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_COMMAND", "ADD"))
-				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_CONTAINERID", containerHandle))
-				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
-				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_PATH", cniPluginDir))
-				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_NETNS", expectedNetNSPath))
-				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
-			}
-
-			By("checking that the fake process's network namespace has been bind-mounted into the filesystem")
-			Expect(sameFile(expectedNetNSPath, fmt.Sprintf("/proc/%d/ns/net", fakePid))).To(BeTrue())
-
-			By("calling down")
-			downCommand := exec.Command(pathToAdapter)
-			downCommand.Env = []string{"FAKE_LOG_DIR=" + fakeLogDir}
-			downCommand.Stdin = strings.NewReader(`{}`)
-			downCommand.Args = []string{pathToAdapter,
-				"--action", "down",
-				"--handle", "some-container-handle",
-				"--configFile", fakeConfigFilePath,
-			}
-
-			downSession, err := gexec.Start(downCommand, GinkgoWriter, GinkgoWriter)
-			Expect(err).NotTo(HaveOccurred())
-			Eventually(downSession, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
-
-			By("checking that every CNI plugin in the plugin directory got called with DEL")
-			for i := 0; i < 3; i++ {
-				logFileContents, err := ioutil.ReadFile(filepath.Join(fakeLogDir, fmt.Sprintf("plugin-%d.log", i)))
-				Expect(err).NotTo(HaveOccurred())
-				var pluginCallInfo fakePluginLogData
-				Expect(json.Unmarshal(logFileContents, &pluginCallInfo)).To(Succeed())
-
-				Expect(pluginCallInfo.Stdin).To(MatchJSON(getConfig(i)))
-				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_COMMAND", "DEL"))
-				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_CONTAINERID", containerHandle))
-				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
-				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_PATH", cniPluginDir))
-				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_NETNS", expectedNetNSPath))
-				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
-			}
-
-			By("checking that the bind-mounted namespace has been removed")
-			Expect(expectedNetNSPath).NotTo(BeAnExistingFile())
 		})
 	})
 })
