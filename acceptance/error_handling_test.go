@@ -72,12 +72,6 @@ var _ = Describe("Guardian CNI adapter", func() {
 		Expect(os.RemoveAll(fakeLogDir)).To(Succeed())
 	})
 
-	Context("when the config files reference a plugin that isn't available", func() {
-		XIt("should exit status 1 and print a useful error", func() {
-
-		})
-	})
-
 	Context("when inputs are invalid", func() {
 		Context("when stdin is not valid JSON", func() {
 			It("should exit status 1 and print an error to stderr", func() {
