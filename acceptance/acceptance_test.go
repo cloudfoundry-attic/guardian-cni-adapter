@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -47,7 +49,7 @@ func expectedStdin(index int) string {
   "type": "plugin-%d",
 	"network": {
 		"network_id": "some-network-id",
-		"app": "some-app-guid"
+		"app_id": "some-app-id"
 	}
 }`, index, index)
 }
@@ -86,6 +88,9 @@ var _ = Describe("Guardian CNI adapter", func() {
 		fakeProcess        *os.Process
 		fakeConfigFilePath string
 		adapterLogFilePath string
+
+		fakeGardenServer *httptest.Server
+		gardenProperties map[string]string
 	)
 
 	BeforeEach(func() {
@@ -118,20 +123,41 @@ var _ = Describe("Guardian CNI adapter", func() {
 		Expect(writeConfig(1, cniConfigDir)).To(Succeed())
 		Expect(writeConfig(2, cniConfigDir)).To(Succeed())
 
+		gardenProperties = map[string]string{
+			"network.app_id":     "some-app-id",
+			"network.network_id": "some-network-id",
+		}
+		fakeGardenServer = httptest.NewServer(http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+			if strings.HasSuffix(req.URL.Path, "/properties") {
+				bytes, _ := json.Marshal(gardenProperties)
+				resp.Write(bytes)
+			} else if strings.HasSuffix(req.URL.Path, "/containers") {
+				resp.Write([]byte(`{ "Handles": [ "some-container-handle" ] }`))
+			} else {
+				fmt.Fprintf(GinkgoWriter, "\n\n\n unknown request: %#v \n\n\n", req)
+				resp.WriteHeader(http.StatusTeapot)
+			}
+		}))
+
 		configFile, err := ioutil.TempFile("", "adapter-config-")
 		Expect(err).NotTo(HaveOccurred())
 		fakeConfigFilePath = configFile.Name()
-		config := map[string]string{
+		config := map[string]interface{}{
 			"cni_plugin_dir": cniPluginDir,
 			"cni_config_dir": cniConfigDir,
 			"bind_mount_dir": bindMountRoot,
 			"log_dir":        adapterLogDir,
+			"garden": map[string]string{
+				"address": strings.TrimPrefix(fakeGardenServer.URL, "http://"),
+				"network": "tcp",
+			},
 		}
 		configBytes, err := json.Marshal(config)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = configFile.Write(configBytes)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(configFile.Close()).To(Succeed())
+
 	})
 
 	AfterEach(func() {
@@ -168,72 +194,62 @@ var _ = Describe("Guardian CNI adapter", func() {
 			}
 		})
 
-		Context("when the network spec is present", func() {
-			BeforeEach(func() {
-				upCommand.Args = append(
-					upCommand.Args,
-					"--external-network", `{"network_id": "some-network-id", "app": "some-app-guid"}`,
-				)
+		It("should call CNI ADD and DEL", func() {
+			By("calling up")
+			upSession, err := gexec.Start(upCommand, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(upSession, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
 
-				downCommand.Args = append(
-					downCommand.Args,
-					"--external-network", `{"network_id": "some-network-id", "app": "some-app-guid"}`,
-				)
-			})
-
-			It("should call CNI ADD and DEL", func() {
-				By("calling up")
-				upSession, err := gexec.Start(upCommand, GinkgoWriter, GinkgoWriter)
+			By("checking that every CNI plugin in the plugin directory got called with ADD")
+			for i := 0; i < 3; i++ {
+				logFileContents, err := ioutil.ReadFile(filepath.Join(fakeLogDir, fmt.Sprintf("plugin-%d.log", i)))
 				Expect(err).NotTo(HaveOccurred())
-				Eventually(upSession, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
+				var pluginCallInfo fakePluginLogData
+				Expect(json.Unmarshal(logFileContents, &pluginCallInfo)).To(Succeed())
 
-				By("checking that every CNI plugin in the plugin directory got called with ADD")
-				for i := 0; i < 3; i++ {
-					logFileContents, err := ioutil.ReadFile(filepath.Join(fakeLogDir, fmt.Sprintf("plugin-%d.log", i)))
-					Expect(err).NotTo(HaveOccurred())
-					var pluginCallInfo fakePluginLogData
-					Expect(json.Unmarshal(logFileContents, &pluginCallInfo)).To(Succeed())
+				Expect(pluginCallInfo.Stdin).To(MatchJSON(expectedStdin(i)))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_COMMAND", "ADD"))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_CONTAINERID", containerHandle))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_PATH", cniPluginDir))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_NETNS", expectedNetNSPath))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
+			}
 
-					Expect(pluginCallInfo.Stdin).To(MatchJSON(expectedStdin(i)))
-					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_COMMAND", "ADD"))
-					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_CONTAINERID", containerHandle))
-					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
-					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_PATH", cniPluginDir))
-					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_NETNS", expectedNetNSPath))
-					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
-				}
+			By("checking that the fake process's network namespace has been bind-mounted into the filesystem")
+			Expect(sameFile(expectedNetNSPath, fmt.Sprintf("/proc/%d/ns/net", fakePid))).To(BeTrue())
 
-				By("checking that the fake process's network namespace has been bind-mounted into the filesystem")
-				Expect(sameFile(expectedNetNSPath, fmt.Sprintf("/proc/%d/ns/net", fakePid))).To(BeTrue())
+			By("calling down")
+			downSession, err := gexec.Start(downCommand, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(downSession, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
 
-				By("calling down")
-				downSession, err := gexec.Start(downCommand, GinkgoWriter, GinkgoWriter)
+			By("checking that every CNI plugin in the plugin directory got called with DEL")
+			for i := 0; i < 3; i++ {
+				logFileContents, err := ioutil.ReadFile(filepath.Join(fakeLogDir, fmt.Sprintf("plugin-%d.log", i)))
 				Expect(err).NotTo(HaveOccurred())
-				Eventually(downSession, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
+				var pluginCallInfo fakePluginLogData
+				Expect(json.Unmarshal(logFileContents, &pluginCallInfo)).To(Succeed())
 
-				By("checking that every CNI plugin in the plugin directory got called with DEL")
-				for i := 0; i < 3; i++ {
-					logFileContents, err := ioutil.ReadFile(filepath.Join(fakeLogDir, fmt.Sprintf("plugin-%d.log", i)))
-					Expect(err).NotTo(HaveOccurred())
-					var pluginCallInfo fakePluginLogData
-					Expect(json.Unmarshal(logFileContents, &pluginCallInfo)).To(Succeed())
+				Expect(pluginCallInfo.Stdin).To(MatchJSON(getConfig(i)))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_COMMAND", "DEL"))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_CONTAINERID", containerHandle))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_PATH", cniPluginDir))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_NETNS", expectedNetNSPath))
+				Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
+			}
 
-					Expect(pluginCallInfo.Stdin).To(MatchJSON(getConfig(i)))
-					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_COMMAND", "DEL"))
-					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_CONTAINERID", containerHandle))
-					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_IFNAME", fmt.Sprintf("eth%d", i)))
-					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_PATH", cniPluginDir))
-					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_NETNS", expectedNetNSPath))
-					Expect(pluginCallInfo.Env).To(HaveKeyWithValue("CNI_ARGS", ""))
-				}
-
-				By("checking that the bind-mounted namespace has been removed")
-				Expect(expectedNetNSPath).NotTo(BeAnExistingFile())
-			})
+			By("checking that the bind-mounted namespace has been removed")
+			Expect(expectedNetNSPath).NotTo(BeAnExistingFile())
 		})
 
-		Context("when the network spec is missing", func() {
+		Context("when the network properties are not available on Garden", func() {
 			BeforeEach(func() {
+
+				delete(gardenProperties, "network.app_id")
+				delete(gardenProperties, "network.network_id")
+
 				Expect(writeSkipConfig(0, cniConfigDir)).To(Succeed())
 				Expect(writeConfig(1, cniConfigDir)).To(Succeed())
 				Expect(writeConfig(2, cniConfigDir)).To(Succeed())

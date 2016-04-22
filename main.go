@@ -6,11 +6,15 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"lib/marshal"
 	"log"
 	"os"
 	"path/filepath"
 
+	GardenClient "github.com/cloudfoundry-incubator/garden/client"
+	GardenConnection "github.com/cloudfoundry-incubator/garden/client/connection"
 	"github.com/cloudfoundry-incubator/guardian-cni-adapter/controller"
+	"github.com/cloudfoundry-incubator/guardian-cni-adapter/lookup"
 )
 
 type Config struct {
@@ -18,6 +22,10 @@ type Config struct {
 	CniConfigDir string `json:"cni_config_dir"`
 	BindMountDir string `json:"bind_mount_dir"`
 	LogDir       string `json:"log_dir"`
+	Garden       struct {
+		Address string `json:"address"`
+		Network string `json:"network"`
+	} `json:"garden"`
 }
 
 var (
@@ -78,13 +86,14 @@ func parseConfig(configFilePath string) error {
 
 func parseArgs(allArgs []string) error {
 	var gardenNetworkSpec, configFilePath string
+	var externalNetworkSpec string
 
 	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
 
 	flagSet.StringVar(&action, "action", "", "")
 	flagSet.StringVar(&handle, "handle", "", "")
 	flagSet.StringVar(&gardenNetworkSpec, "network", "", "")
-	flagSet.StringVar(&networkSpec, "external-network", "", "")
+	flagSet.StringVar(&externalNetworkSpec, "external-network", "", "")
 	flagSet.StringVar(&configFilePath, "configFile", "", "")
 
 	err := flagSet.Parse(allArgs[1:])
@@ -114,6 +123,9 @@ func parseArgs(allArgs []string) error {
 	if action == "" {
 		return fmt.Errorf("missing required flag 'action'")
 	}
+
+	log.Printf("parsed: %+v\n", allArgs)
+	log.Printf("adapter config: %+v\n", config)
 
 	return nil
 }
@@ -154,13 +166,29 @@ func main() {
 		BindMountRoot: config.BindMountDir,
 	}
 
+	gardenClient := GardenClient.New(GardenConnection.New(config.Garden.Network, config.Garden.Address))
+	lookupClient := lookup.Client{
+		GardenClient: gardenClient,
+		Marshaler:    marshal.MarshalFunc(json.Marshal),
+	}
+
 	switch action {
 	case "up":
+		networkSpec, err := lookupClient.GetNetworkSpec(handle)
+		if err != nil {
+			log.Fatalf("get network spec: %s", err)
+		}
+
 		err = manager.Up(containerState.Pid, handle, networkSpec)
 		if err != nil {
 			log.Fatalf("up failed: %s", err)
 		}
 	case "down":
+		networkSpec, err := lookupClient.GetNetworkSpec(handle)
+		if err != nil {
+			log.Fatalf("get network spec: %s", err)
+		}
+
 		err = manager.Down(handle, networkSpec)
 		if err != nil {
 			log.Fatalf("down failed: %s", err)

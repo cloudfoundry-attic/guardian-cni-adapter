@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,10 +26,10 @@ var _ = Describe("Guardian CNI adapter", func() {
 		fakeLogDir         string
 		adapterLogFilePath string
 		fakeConfigFilePath string
-		defaultConfig      map[string]string
+		defaultConfig      map[string]interface{}
 	)
 
-	var writeConfig = func(configHash map[string]string) {
+	var writeConfig = func(configHash map[string]interface{}) {
 		configBytes, err := json.Marshal(configHash)
 		Expect(err).NotTo(HaveOccurred())
 		err = ioutil.WriteFile(fakeConfigFilePath, configBytes, 0600)
@@ -47,11 +49,31 @@ var _ = Describe("Guardian CNI adapter", func() {
 		Expect(configFile.Close()).To(Succeed())
 
 		fakeConfigFilePath = configFile.Name()
-		defaultConfig = map[string]string{
+
+		gardenProperties := map[string]string{
+			"network.app_id":     "some-app-id",
+			"network.network_id": "some-network-id",
+		}
+		fakeGardenServer := httptest.NewServer(http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+			if strings.HasSuffix(req.URL.Path, "/properties") {
+				bytes, _ := json.Marshal(gardenProperties)
+				resp.Write(bytes)
+			} else if strings.HasSuffix(req.URL.Path, "/containers") {
+				resp.Write([]byte(`{ "Handles": [ "some-container-handle" ] }`))
+			} else {
+				fmt.Fprintf(GinkgoWriter, "\n\n\n unknown request: %#v \n\n\n", req)
+				resp.WriteHeader(http.StatusTeapot)
+			}
+		}))
+		defaultConfig = map[string]interface{}{
 			"cni_plugin_dir": "/some/cni/plugin/dir",
 			"cni_config_dir": "/some/cni/config/dir",
 			"bind_mount_dir": "/some/bind/mount/dir",
 			"log_dir":        adapterLogDir,
+			"garden": map[string]string{
+				"address": strings.TrimPrefix(fakeGardenServer.URL, "http://"),
+				"network": "tcp",
+			},
 		}
 		writeConfig(defaultConfig)
 
