@@ -46,8 +46,10 @@ func expectedStdin(index int) string {
   "name": "some-net-%d",
   "type": "plugin-%d",
 	"network": {
-		"network_id": "some-network-id",
-		"app": "some-app-guid"
+		"properties": {
+			"some-key": "some-value",
+			"some-other-key": "some-other-value"
+		}
 	}
 }`, index, index)
 }
@@ -168,16 +170,16 @@ var _ = Describe("Guardian CNI adapter", func() {
 			}
 		})
 
-		Context("when the network spec is present", func() {
+		Context("when network-properties are present", func() {
 			BeforeEach(func() {
 				upCommand.Args = append(
 					upCommand.Args,
-					"--external-network", `{"network_id": "some-network-id", "app": "some-app-guid"}`,
+					"--properties", `{ "some-key": "some-value", "some-other-key": "some-other-value" }`,
 				)
 
 				downCommand.Args = append(
 					downCommand.Args,
-					"--external-network", `{"network_id": "some-network-id", "app": "some-app-guid"}`,
+					"--properties", `{ "some-key": "some-value", "some-other-key": "some-other-value" }`,
 				)
 			})
 
@@ -240,7 +242,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 				Expect(writeSkipConfig(3, cniConfigDir)).To(Succeed())
 			})
 
-			It("calls CNI plugins without the skip_without_network flag", func() {
+			It("calls CNI plugins for which skip_without_network is false", func() {
 				upSession, err := gexec.Start(upCommand, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(upSession, DEFAULT_TIMEOUT).Should(gexec.Exit(0))

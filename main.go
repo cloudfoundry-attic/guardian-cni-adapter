@@ -21,10 +21,10 @@ type Config struct {
 }
 
 var (
-	action      string
-	handle      string
-	networkSpec string
-	config      Config
+	action            string
+	handle            string
+	config            Config
+	encodedProperties string
 )
 
 func setupLogging(logDir, handle string) error {
@@ -84,7 +84,7 @@ func parseArgs(allArgs []string) error {
 	flagSet.StringVar(&action, "action", "", "")
 	flagSet.StringVar(&handle, "handle", "", "")
 	flagSet.StringVar(&gardenNetworkSpec, "network", "", "")
-	flagSet.StringVar(&networkSpec, "external-network", "", "")
+	flagSet.StringVar(&encodedProperties, "properties", "", "")
 	flagSet.StringVar(&configFilePath, "configFile", "", "")
 
 	err := flagSet.Parse(allArgs[1:])
@@ -156,12 +156,12 @@ func main() {
 
 	switch action {
 	case "up":
-		err = manager.Up(containerState.Pid, handle, networkSpec)
+		err = manager.Up(containerState.Pid, handle, encodedProperties)
 		if err != nil {
 			log.Fatalf("up failed: %s", err)
 		}
 	case "down":
-		err = manager.Down(handle, networkSpec)
+		err = manager.Down(handle, encodedProperties)
 		if err != nil {
 			log.Fatalf("down failed: %s", err)
 		}

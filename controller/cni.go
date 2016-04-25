@@ -72,13 +72,15 @@ func AppendNetworkSpec(existingNetConfig *libcni.NetworkConfig, gardenNetworkSpe
 		return nil, fmt.Errorf("unmarshal existing network bytes: %s", err)
 	}
 
-	if gardenNetworkSpec != "" && !isCIDR(gardenNetworkSpec) && !isIP(gardenNetworkSpec) {
+	if gardenNetworkSpec != "" {
 		networkPayloadMap := make(map[string]interface{})
 		err = json.Unmarshal([]byte(gardenNetworkSpec), &networkPayloadMap)
 		if err != nil {
 			return nil, fmt.Errorf("unmarshal garden network spec: %s", err)
 		}
-		config["network"] = networkPayloadMap
+		config["network"] = map[string]interface{}{
+			"properties": networkPayloadMap,
+		}
 	}
 
 	newBytes, err := json.Marshal(config)

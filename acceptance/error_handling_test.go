@@ -59,7 +59,7 @@ var _ = Describe("Guardian CNI adapter", func() {
 		command.Args = []string{pathToAdapter,
 			"--action=up",
 			"--handle=some-container-handle",
-			"--external-network=some-network-spec",
+			"--properties=some-network-spec",
 			"--configFile=" + fakeConfigFilePath,
 		}
 
