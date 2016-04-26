@@ -45,12 +45,12 @@ func expectedStdin(index int) string {
   "cniVersion": "0.1.0",
   "name": "some-net-%d",
   "type": "plugin-%d",
-	"network": {
-		"properties": {
-			"some-key": "some-value",
-			"some-other-key": "some-other-value"
-		}
-	}
+  "network": {
+    "properties": {
+      "some-key": "some-value",
+      "some-other-key": "some-other-value"
+    }
+  }
 }`, index, index)
 }
 
@@ -240,6 +240,16 @@ var _ = Describe("Guardian CNI adapter", func() {
 				Expect(writeConfig(1, cniConfigDir)).To(Succeed())
 				Expect(writeConfig(2, cniConfigDir)).To(Succeed())
 				Expect(writeSkipConfig(3, cniConfigDir)).To(Succeed())
+
+				upCommand.Args = append(
+					upCommand.Args,
+					"--properties", `{}`,
+				)
+
+				downCommand.Args = append(
+					downCommand.Args,
+					"--properties", `{}`,
+				)
 			})
 
 			It("calls CNI plugins for which skip_without_network is false", func() {

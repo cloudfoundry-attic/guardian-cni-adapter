@@ -78,8 +78,11 @@ func AppendNetworkSpec(existingNetConfig *libcni.NetworkConfig, gardenNetworkSpe
 		if err != nil {
 			return nil, fmt.Errorf("unmarshal garden network spec: %s", err)
 		}
-		config["network"] = map[string]interface{}{
-			"properties": networkPayloadMap,
+
+		if len(networkPayloadMap) != 0 {
+			config["network"] = map[string]interface{}{
+				"properties": networkPayloadMap,
+			}
 		}
 	}
 

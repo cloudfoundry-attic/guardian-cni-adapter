@@ -46,6 +46,15 @@ var _ = Describe("CNI", func() {
 			})
 		})
 
+		Context("when the network spec is empty json", func() {
+			It("should omit the network field", func() {
+				newNetworkSpec, err := controller.AppendNetworkSpec(existingConfig, " {  }")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(newNetworkSpec.Bytes).To(MatchJSON([]byte(`{"something":"some-value"}`)))
+			})
+		})
+
 		Context("when the existingNetConfig.Bytes is malformed JSON", func() {
 			It("should return an error", func() {
 				existingConfig.Bytes = []byte("%%%%%%")
