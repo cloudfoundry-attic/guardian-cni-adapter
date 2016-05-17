@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/appc/cni/libcni"
+	"github.com/containernetworking/cni/libcni"
 )
 
 type CNIController struct {

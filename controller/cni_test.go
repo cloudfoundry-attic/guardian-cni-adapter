@@ -1,8 +1,8 @@
 package controller_test
 
 import (
-	"github.com/appc/cni/libcni"
 	"github.com/cloudfoundry-incubator/guardian-cni-adapter/controller"
+	"github.com/containernetworking/cni/libcni"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
