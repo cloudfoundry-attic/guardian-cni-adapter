@@ -10,11 +10,18 @@ import (
 	"strings"
 
 	"github.com/containernetworking/cni/libcni"
+	"github.com/containernetworking/cni/pkg/types"
 )
 
+type resultPoster interface {
+	AddResult(containerID string, netConf *libcni.NetworkConfig, result *types.Result) error
+	DelResult(containerID string, netConf *libcni.NetworkConfig) error
+}
+
 type CNIController struct {
-	PluginDir string
-	ConfigDir string
+	PluginDir    string
+	ConfigDir    string
+	ResultPoster resultPoster
 
 	cniConfig      *libcni.CNIConfig
 	networkConfigs []*libcni.NetworkConfig
@@ -128,6 +135,14 @@ func (c *CNIController) Up(namespacePath, handle, spec string) error {
 			}
 
 			log.Printf("up result for name=%s, type=%s: \n%s\n", networkConfig.Network.Name, networkConfig.Network.Type, result.String())
+
+			if c.ResultPoster != nil {
+				err = c.ResultPoster.AddResult(handle, enhancedNetConfig, result)
+				if err != nil {
+					log.Printf("error posting add result: %s\n", err)
+				}
+				log.Printf("added result: %s\n", handle)
+			}
 		}
 	}
 
@@ -159,6 +174,14 @@ func (c *CNIController) Down(namespacePath, handle, spec string) error {
 			}
 
 			log.Printf("down complete for name=%s, type=%s\n", networkConfig.Network.Name, networkConfig.Network.Type)
+
+			if c.ResultPoster != nil {
+				err = c.ResultPoster.DelResult(handle, enhancedNetConfig)
+				if err != nil {
+					log.Printf("error posting add result: %s\n", err)
+				}
+				log.Printf("removed result: %s\n", handle)
+			}
 		}
 	}
 

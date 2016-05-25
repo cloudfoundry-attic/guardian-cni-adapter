@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -14,10 +15,11 @@ import (
 )
 
 type Config struct {
-	CniPluginDir string `json:"cni_plugin_dir"`
-	CniConfigDir string `json:"cni_config_dir"`
-	BindMountDir string `json:"bind_mount_dir"`
-	LogDir       string `json:"log_dir"`
+	CniPluginDir  string `json:"cni_plugin_dir"`
+	CniConfigDir  string `json:"cni_config_dir"`
+	BindMountDir  string `json:"bind_mount_dir"`
+	PostResultURL string `json:"post_result_url"`
+	LogDir        string `json:"log_dir"`
 }
 
 var (
@@ -141,9 +143,12 @@ func main() {
 		log.Fatalf("arg parsing error: %s", err)
 	}
 
+	resultPoster := controller.NewResultPoster(config.PostResultURL, http.DefaultClient)
+
 	cniController := &controller.CNIController{
-		PluginDir: config.CniPluginDir,
-		ConfigDir: config.CniConfigDir,
+		PluginDir:    config.CniPluginDir,
+		ConfigDir:    config.CniConfigDir,
+		ResultPoster: resultPoster,
 	}
 
 	mounter := &controller.Mounter{}
