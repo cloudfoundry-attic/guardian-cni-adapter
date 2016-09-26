@@ -1,4 +1,4 @@
 # guardian-cni-adapter
-Guardian network plugin that drives AppC CNI plugins
 
-Acts like a runc pre-start / post-stop hook.  Calls CNI plugins.
+## Moved
+This component has been moved and renamed.  You can [find it here](https://github.com/cloudfoundry-incubator/netman-release/tree/develop/src/garden-external-networker).
